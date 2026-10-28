@@ -4,7 +4,7 @@
    (al primo uso la TV chiede "Consenti"). Gli endpoint che agiscono sulla TV accettano solo richieste dalla pagina di TizenBrew. */
 (function () {
   'use strict';
-  var VERSION = '1.3.2';
+  var VERSION = '1.4.0';
   var http = require('http');
   var fs = require('fs');
   var crypto = require('crypto');
@@ -16,6 +16,33 @@
     alloc: function (n) { var b = new Buffer(n); b.fill(0); return b; }
   };
   var sockets = [];
+  var SELF_APP = (function () { try { return tizen.application.getCurrentApplication().appInfo.packageId + '.TizenBrewStandalone'; } catch (e) { return 'xvvl3S1bvH.TizenBrewStandalone'; } })();
+
+  /* --- ritorno automatico: osservo l'app avviata dal launcher e, quando si chiude, riporto TizenBrew (Milano Home) in primo piano --- */
+  var watch = null;
+  function getJson(path, cb) {
+    try { var r = http.get({ host: '127.0.0.1', port: 8001, path: path }, function (res) { var b = ''; res.on('data', function (c) { b += c; }); res.on('end', function () { try { cb(null, JSON.parse(b)); } catch (e) { cb(e); } }); });
+      r.on('error', function (e) { cb(e); }); r.setTimeout(3000, function () { try { r.abort(); } catch (e) {} }); } catch (e) { cb(e); }
+  }
+  function bringLauncherBack() {
+    if (!hasTizen()) return;
+    try { tizen.application.launch(SELF_APP, function () { console.log('MilanoHome: launcher in primo piano'); }, function (e) { console.log('MilanoHome: launch launcher failed ' + (e && e.message)); }); } catch (e) { console.log('MilanoHome: ' + e.message); }
+  }
+  function watchApp(id) {
+    if (watch) { clearInterval(watch.timer); watch = null; }
+    var w = { id: id, seenRunning: false, started: Date.now(), timer: null };
+    w.timer = setInterval(function () {
+      if (Date.now() - w.started > 6 * 3600 * 1000) { clearInterval(w.timer); watch = null; return; }
+      getJson('/api/v2/applications/' + encodeURIComponent(id), function (err, j) {
+        if (err || !j || typeof j.running === 'undefined') { if (Date.now() - w.started > 30000 && !w.seenRunning) { clearInterval(w.timer); watch = null; } return; }
+        var running = j.running === true || j.running === 'true';
+        if (running) { w.seenRunning = true; return; }
+        if (w.seenRunning) { clearInterval(w.timer); watch = null; setTimeout(bringLauncherBack, 600); }
+        else if (Date.now() - w.started > 30000) { clearInterval(w.timer); watch = null; }
+      });
+    }, 2000);
+    watch = w;
+  }
 
   function json(res, code, obj) {
     res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Connection': 'close' });
@@ -84,7 +111,7 @@
   var server = http.createServer(function (req, res) {
     var url = req.url || '/', q = qs(url), path = url.split('?')[0];
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }); return res.end(); }
-    if (path === '/ping') return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: VERSION });
+    if (path === '/ping') return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: VERSION, self: SELF_APP, watching: watch ? watch.id : null });
     if (path === '/apps') return listApps(function (err, apps) { if (err) return json(res, 500, { error: err }); json(res, 200, { apps: apps }); });
     if (path === '/icon') {
       var p = q.path || '', okDir = ICON_DIRS.some(function (d) { return p.indexOf(d) === 0; });
@@ -108,7 +135,7 @@
     if (path === '/launch') {
       if (!hasTizen()) return json(res, 500, { error: 'no tizen' });
       if (!q.id) return json(res, 400, { error: 'id?' });
-      try { tizen.application.launch(q.id, function () { json(res, 200, { ok: true }); }, function (e) { json(res, 500, { error: e && e.message ? e.message : 'launch failed' }); }); }
+      try { tizen.application.launch(q.id, function () { json(res, 200, { ok: true }); if (q.back === '1') watchApp(q.id); else if (watch) { clearInterval(watch.timer); watch = null; } }, function (e) { json(res, 500, { error: e && e.message ? e.message : 'launch failed' }); }); }
       catch (e) { json(res, 500, { error: e.message }); }
       return;
     }

@@ -13,9 +13,11 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 .stage{position:fixed;top:0;left:0;right:0;bottom:0;overflow:hidden;background:var(--bg)}
 .wall{position:absolute;top:-4%;left:-4%;right:-4%;bottom:-4%;background-size:cover;background-position:center;opacity:0;transition:opacity 2.5s ease}
 .wall.on{opacity:1}
-.wall.kb1{animation:kb1 70s linear forwards}.wall.kb2{animation:kb2 70s linear forwards}
-@keyframes kb1{from{transform:scale(1.02) translate(-1%,.5%)}to{transform:scale(1.10) translate(1%,-.8%)}}
-@keyframes kb2{from{transform:scale(1.10) translate(1%,.6%)}to{transform:scale(1.02) translate(-1%,-.5%)}}
+.wall.kb1{animation:kb1 100s linear forwards}.wall.kb2{animation:kb2 100s linear forwards}.wall.kb3{animation:kb3 100s linear forwards}.wall.kb4{animation:kb4 100s linear forwards}
+@keyframes kb1{from{transform:scale(1.0) translate(-2%,1%)}to{transform:scale(1.18) translate(2%,-1.5%)}}
+@keyframes kb2{from{transform:scale(1.18) translate(2%,1.2%)}to{transform:scale(1.0) translate(-2%,-1%)}}
+@keyframes kb3{from{transform:scale(1.04) translate(2.5%,-1%)}to{transform:scale(1.2) translate(-2%,1.2%)}}
+@keyframes kb4{from{transform:scale(1.2) translate(-2%,-1.5%)}to{transform:scale(1.02) translate(2%,1%)}}
 .vignette{position:absolute;top:0;left:0;right:0;bottom:0;background:
   radial-gradient(ellipse 120% 90% at 50% 45%,transparent 50%,rgba(3,5,12,.5) 100%),
   linear-gradient(to bottom,rgba(3,5,12,.2),transparent 25%,transparent 55%,rgba(3,5,12,.75))}
@@ -59,12 +61,16 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   background:radial-gradient(ellipse 110% 70% at 25% 0%,rgba(255,255,255,.22),transparent 60%)}
 .tile img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none}
 .tile.has-icon img{display:block}
-.tile.has-icon.contain img{object-fit:contain;padding:14%}
-.tile .glyph{position:absolute;left:50%;top:50%;width:3.8vw;height:3.8vw;margin:-2.1vw 0 0 -1.9vw;border-radius:26%;text-align:center;line-height:3.8vw;
-  font-weight:700;font-size:2.2vw;color:#fff;background:linear-gradient(145deg,#6f7fa8,#2d3650);box-shadow:0 8px 20px rgba(0,0,0,.4)}
+.tile.has-icon.contain img{left:50%;top:50%;width:auto;height:62%;transform:translate(-50%,-50%);object-fit:cover;border-radius:18%;box-shadow:0 8px 22px rgba(0,0,0,.45)}
+.tile .glyph{position:absolute;left:50%;top:50%;width:6.2vw;height:6.2vw;margin:-3.3vw 0 0 -3.1vw;border-radius:22%;text-align:center;line-height:6.2vw;
+  font-weight:600;font-size:2.8vw;color:#fff;background:linear-gradient(150deg,#7c8cb4,#2d3650);box-shadow:0 10px 26px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.35);overflow:hidden}
+.tile .glyph svg{width:58%;height:58%;position:absolute;left:21%;top:21%}
+.tile .glyph.sym{font-size:2vw;line-height:1}
+.tile .glyph.sym b{position:absolute;right:9%;bottom:6%;font-size:1.4vw;font-weight:700;opacity:.95}
 .tile.has-icon .glyph{display:none}
 .tile .wm{position:absolute;left:8%;bottom:8%;font-size:.9vw;font-weight:600;color:var(--fg-dim);z-index:3;text-shadow:0 1px 6px rgba(0,0,0,.8)}
 .tile.has-icon .wm{display:none}
+.tile .wm{left:0;right:0;text-align:center;bottom:7%;font-size:.95vw}
 .tile.is-focus{transform:translateY(-8%) scale(1.16);background:var(--glass-strong);z-index:5;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 0 0 .22vw var(--focus),0 34px 60px rgba(0,0,0,.55)}
 .tile.is-pressed{transform:translateY(-4%) scale(1.08)}
@@ -93,6 +99,8 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 .item .id{color:var(--fg-dim);font-size:.8vw;margin-left:1vw;font-family:monospace}
 .item.sel{background:var(--glass-strong);box-shadow:0 0 0 .18vw var(--focus)}
 .item.hid{opacity:.55}
+.item .mv{display:none;color:var(--fg-dim);font-size:.9vw;margin-left:1vw;white-space:nowrap}
+.item.sel .mv{display:inline}
 .menu .item{height:4vw;line-height:4vw;font-size:1.5vw}
 .pos{position:absolute;right:0;top:-2.6vw;font-size:.9vw;color:var(--fg-dim);font-variant-numeric:tabular-nums}
 .list{overflow:visible}
@@ -124,7 +132,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
-  var VERSION='1.3.2';
+  var VERSION='1.4.0';
   var isTV=location.protocol!=='file:'&&location.hostname==='127.0.0.1'; // caricato da TizenBrew
   var toastEl=$('toast'),tt;
   function toast(m,ms){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},ms||1800);}
@@ -144,8 +152,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   var WALLS=[['wall1.jpg','Duomo e Castello dall\'alto · Gianluca, Pexels'],['wall2.jpg','Castello Sforzesco · Mikhail Nilov, Pexels'],
              ['wall3.jpg','Guglie del Duomo all\'ora blu · A. Buchinskaia, Unsplash'],['wall4.jpg','Duomo al tramonto · Mahya Jahangir, Unsplash']];
   var A=$('wallA'),B=$('wallB'),front=A,wi=0;
-  function showWall(i){var next=front===A?B:A;next.style.backgroundImage='url('+WALLS[i][0]+')';next.className='wall on '+(i%2?'kb2':'kb1');front.className='wall';front=next;$('credit').textContent='Foto: '+WALLS[i][1];}
-  showWall(0);setInterval(function(){wi=(wi+1)%WALLS.length;showWall(wi);},60000);
+  var kbs=['kb1','kb2','kb3','kb4'],kbi=0;
+  function showWall(i){var next=front===A?B:A;next.style.backgroundImage='url('+WALLS[i][0]+')';next.className='wall on '+kbs[kbi++%4];front.className='wall';front=next;$('credit').textContent='Foto: '+WALLS[i][1];}
+  showWall(0);setInterval(function(){wi=(wi+1)%WALLS.length;showWall(wi);},90000);
 
   /* ---------- meteo: Open-Meteo, Berbenno di Valtellina ---------- */
   var ICONS={
@@ -181,10 +190,13 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   var SVC='http://127.0.0.1:8095',svcOk=false,dbg={};
 
   /* preferenze (ordine, nascoste, nomi HDMI, ultima app) e cache del catalogo, salvate sulla TV */
-  var prefs={order:[],hidden:[],hdmi:{},last:null};
+  var prefs={order:[],hidden:[],hdmi:{},last:null,back:true};
   try{var pp=localStorage.getItem('mh_prefs');if(pp){var o=JSON.parse(pp);for(var k in o)if(o[k]!==null&&o[k]!==undefined)prefs[k]=o[k];}}catch(e){}
   function savePrefs(){try{localStorage.setItem('mh_prefs',JSON.stringify(prefs))}catch(e){}}
   function hdmiName(n){return prefs.hdmi[n]||'HDMI '+n;}
+  var SYM={play:'<svg viewBox="0 0 64 64"><path d="M24 16v32l26-16z" fill="#fff"/></svg>',film:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4"><rect x="10" y="14" width="44" height="36" rx="4"/><path d="M10 26h44M10 38h44M22 14v36M42 14v36"/></svg>',game:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"><path d="M20 22h24a12 12 0 0 1 12 12l-2 10a6 6 0 0 1-10 3l-5-5H25l-5 5a6 6 0 0 1-10-3l-2-10a12 12 0 0 1 12-12z"/><path d="M22 30v8M18 34h8M42 31h.1M47 36h.1"/></svg>',hdmi:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"><path d="M10 24h44v12l-8 8H18l-8-8z"/><path d="M20 30h24" stroke-width="3"/></svg>',home:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"><path d="M12 30 32 14l20 16v22H38V38H26v14H12z"/></svg>',power:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"><path d="M32 12v20"/><path d="M20.5 20.5a16 16 0 1 0 23 0"/></svg>'};
+  var HUES=[["#4f7cff","#1b2f73"],["#ff6b4a","#7a2415"],["#2fbf8f","#0f4f3a"],["#b26bff","#3d1f73"],["#ffb547","#7a4a0f"],["#3cc4e8","#0f4a5c"]];
+  function hueFor(name){var h=0;for(var i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;return HUES[h%HUES.length];}
   function hdmiLabel(n){return esc(hdmiName(n))+' <span>'+(prefs.hdmi[n]?'HDMI '+n:'cambia sorgente')+'</span>';}
 
   /* --- servizio locale (service.js) --- */
@@ -200,7 +212,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   function iconUrl(a){if(!a.iconPath)return null;return SVC+'/icon?path='+encodeURIComponent(a.iconPath);}
   function noService(){toast('Servizio non attivo: riapri Milano Home da TizenBrew',4000);}
   function launchApp(id,name){ensureService().then(function(ok){if(!ok)return noService();
-    fetchJson(SVC+'/launch?id='+encodeURIComponent(id),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile',3000)});});}
+    fetchJson(SVC+'/launch?id='+encodeURIComponent(id)+'&back='+(prefs.back===false?0:1),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile',3000)});});}
   function sendKey(key,okMsg){ensureService().then(function(ok){if(!ok)return noService();
     fetchJson(SVC+'/key?key='+key,35000).then(function(j){if(j.error)toast(j.error,5000);else if(okMsg)toast(okMsg);}).catch(function(){toast('Nessuna risposta dalla TV',4000)});});}
   var offArmed=0;
@@ -226,7 +238,11 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 
   /* --- riga delle app --- */
   function mkTile(it){var t=document.createElement('div');t.className='tile';
-    var img=document.createElement('img');img.alt='';var gl=document.createElement('div');gl.className='glyph';gl.textContent=it.kind==='hdmi'?it.n:it.kind==='off'?'⏻':(it.name||'?').charAt(0).toUpperCase();
+    var img=document.createElement('img');img.alt='';var gl=document.createElement('div');gl.className='glyph';
+    var sym=it.kind==='hdmi'?'hdmi':it.kind==='home'?'home':it.kind==='off'?'power':it.sym||null;
+    if(sym){gl.className='glyph sym';gl.innerHTML=SYM[sym]+(it.kind==='hdmi'?'<b>'+it.n+'</b>':'');
+      var col=it.kind==='off'?['#ff5f57','#6b1d18']:it.kind==='home'?['#9aa7c7','#2c3550']:it.kind==='hdmi'?['#6b7aa3','#242c45']:hueFor(it.name||'');gl.style.background='linear-gradient(150deg,'+col[0]+','+col[1]+')';}
+    else{gl.textContent=(it.name||'?').charAt(0).toUpperCase();var c2=hueFor(it.name||'');gl.style.background='linear-gradient(150deg,'+c2[0]+','+c2[1]+')';}
     var wm=document.createElement('div');wm.className='wm';wm.textContent=it.name;t.appendChild(img);t.appendChild(gl);t.appendChild(wm);
     if(it.icon){img.onload=function(){t.classList.add('has-icon');if(img.naturalWidth<=img.naturalHeight*1.05)t.classList.add('contain');};img.onerror=function(){t.classList.remove('has-icon')};img.src=it.icon;}
     t.addEventListener('click',function(){focus(tiles.indexOf(t));launch();});return t;}
@@ -248,10 +264,15 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     else if(it.kind==='home')sendKey('KEY_HOME');}
 
   /* --- catalogo completo -> preferenze -> elenco visibile --- */
+  function appIconByName(apps,names){var hit=null;apps.forEach(function(a){if(!a||!a.name)return;var n=a.name.toLowerCase().trim();if(names.indexOf(n)>=0&&a.iconOk===true&&!hit)hit=a;});return hit?iconUrl(hit):null;}
   function buildCatalog(mods,apps){var cat=[];
     mods.forEach(function(m){if(!m||!m.appName||(m.name||'').toLowerCase().indexOf(SELF)>=0)return;var key=(m.name||'').toLowerCase().replace(/^@[^/]+\//,'');
       var lab=null;Object.keys(MODULE_LABEL).forEach(function(k){if(key.indexOf(k)>=0)lab=MODULE_LABEL[k];});
-      cat.push({kind:'module',id:'mod:'+m.fullName,mod:m,name:m.appName,label:lab,icon:null,def:true,rank:key.indexOf('tizentube')>=0?0:50});});
+      var icon=null,sym='play';
+      if(key.indexOf('tizentube')>=0){icon=appIconByName(apps,['youtube']);}
+      else if(key.indexOf('jellyfin')>=0){sym='film';icon=appIconByName(apps,['jellyfin']);}
+      else if(key.indexOf('moonlight')>=0){sym='game';}
+      cat.push({kind:'module',id:'mod:'+m.fullName,mod:m,name:m.appName,label:lab,icon:icon,sym:sym,def:true,rank:key.indexOf('tizentube')>=0?0:50});});
     // una sola voce per nome: Samsung registra più "app" omonime (app vera + componenti). Preferisco icona leggibile, ID store, voce visibile.
     var best={};
     apps.forEach(function(a){if(!a||!a.name||!a.id)return;var key=a.name.toLowerCase().trim();
@@ -293,9 +314,10 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   function showPanel(cls){plist.className=cls;panel.classList.add('show');drawRows();}
   function openMenu(){mode='menu';psel=0;$('ptitle').textContent='Milano Home '+VERSION;$('pdesc').textContent='Invio per scegliere · Indietro per chiudere';
     prows=[{t:'Scegli e ordina le app',a:function(){openPicker(false)}},{t:'Nomi degli ingressi HDMI',a:openHdmi},{t:'Mostra tutte le app di sistema',a:function(){openPicker(true)}},
+      {t:'Torna a Milano Home quando esci da un\'app: '+(prefs.back===false?'No':'Sì'),a:function(){prefs.back=prefs.back===false;savePrefs();openMenu();psel=3;drawRows();}},
       {t:'Ripristina ordine predefinito',a:function(){prefs.order=[];prefs.hidden=[];savePrefs();applyPrefs();render();closePanel();toast('Ordine ripristinato');}},{t:'Diagnostica',a:function(){closePanel();toggleDebug();}}];
     showPanel('inner menu');}
-  function openPicker(all){mode='pick';pickAll=!!all;psel=0;vis={};$('ptitle').textContent=all?'Tutte le app di sistema':'Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → = sposta · Indietro = salva e chiudi';
+  function openPicker(all){mode='pick';pickAll=!!all;psel=0;vis={};$('ptitle').textContent=all?'Tutte le app di sistema':'Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → (o canale ▲▼) = sposta la riga su/giù · Indietro = salva e chiudi';
     pick=applyPrefs().filter(function(c){return pickAll||!c.sys||isVisible(c);});showPanel('inner');}
   function openHdmi(){mode='hdmi';psel=0;$('ptitle').textContent='Nomi degli ingressi HDMI';$('pdesc').textContent='← → cambia nome · Indietro = salva e chiudi';showPanel('inner menu');}
   function isVisibleRaw(c){return vis[c.id]!==undefined?vis[c.id]:isVisible(c);}
@@ -305,7 +327,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     rows.slice(start,start+N).forEach(function(r,k){var i=start+k;var d=document.createElement('div');d.className='item'+(i===psel?' sel':'');
       if(mode==='menu'){d.textContent=r.t;}
       else if(mode==='hdmi'){d.innerHTML='<span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent='HDMI '+r+'  →  '+hdmiName(r);d.querySelector('.id').textContent='← →';}
-      else{var on=isVisibleRaw(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.dup?' (duplicato)':(r.sys&&pickAll)?' (sistema)':'');d.querySelector('.id').textContent=(pickAll&&r.kind==='app')?r.id:'';}
+      else{var on=isVisibleRaw(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span><span class="mv">◀ su · ▶ giù</span>';d.querySelector('.nm').textContent=r.name+(r.dup?' (duplicato)':(r.sys&&pickAll)?' (sistema)':'');d.querySelector('.id').textContent=(pickAll&&r.kind==='app')?r.id:'';}
       plist.appendChild(d);});
     if(rows.length>N){var pos=document.createElement('div');pos.className='pos';pos.textContent=(psel+1)+' / '+rows.length;plist.appendChild(pos);}
     if(!rows.length){var e=document.createElement('div');e.className='item';e.textContent='Nessuna voce';plist.appendChild(e);}}
@@ -322,7 +344,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     if(!rows.length)return;
     if(k===40){psel=(psel+1)%rows.length;drawRows();}else if(k===38){psel=(psel-1+rows.length)%rows.length;drawRows();}
     else if(k===13){if(mode==='menu')rows[psel].a();else if(mode==='pick'){var c=pick[psel];vis[c.id]=!isVisibleRaw(c);drawRows();}}
-    else if((k===37||k===39)&&mode==='pick'){var j=k===37?psel-1:psel+1;if(j<0||j>=pick.length)return;var tmp=pick[psel];pick[psel]=pick[j];pick[j]=tmp;psel=j;drawRows();}
+    else if((k===37||k===39||k===427||k===428)&&mode==='pick'){var j=(k===37||k===427)?psel-1:psel+1;if(j<0||j>=pick.length)return;var tmp=pick[psel];pick[psel]=pick[j];pick[j]=tmp;psel=j;drawRows();}
     else if((k===37||k===39)&&mode==='hdmi'){var n=rows[psel],idx=HDMI_NAMES.indexOf(prefs.hdmi[n]||'HDMI');idx=(idx+(k===39?1:-1)+HDMI_NAMES.length)%HDMI_NAMES.length;
       if(HDMI_NAMES[idx]==='HDMI')delete prefs.hdmi[n];else prefs.hdmi[n]=HDMI_NAMES[idx];drawRows();}}
   function toggleDebug(){var d=$('debug');if(d.classList.contains('show')){d.classList.remove('show');return;}
@@ -340,6 +362,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     else if(k===13){launch();e.preventDefault();}
     else if(k===38){openMenu();e.preventDefault();}
     else if(k===10009||k===27){e.preventDefault();if(history.length>1)history.back();}
+    else if(k===427||k===428){e.preventDefault();}
   });
   window.addEventListener('resize',function(){focus(cur)});
   document.addEventListener('visibilitychange',function(){if(!document.hidden){tick();loadWeather();}});

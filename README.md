@@ -17,6 +17,8 @@ Il tile **Spegni** spegne la TV con Invio premuto due volte. Gli HDMI e lo spegn
 
 Il launcher ricorda l'ultima app aperta, tiene in cache l'elenco delle app per partire subito, e mostra un saluto in base all'ora.
 
+Quando esci da un'app aperta dal launcher, Milano Home torna in primo piano da sola (disattivabile dal menu). Nel menu "Scegli e ordina le app" la riga selezionata si sposta con ← → (o canale ▲▼).
+
 ## Crediti foto
 
 Gianluca (Pexels), Mikhail Nilov (Pexels), Anastasiia Buchinskaia (Unsplash), Mahya Jahangir (Unsplash). Licenze Pexels/Unsplash.
