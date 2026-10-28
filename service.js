@@ -20,13 +20,19 @@
       req.setTimeout(10000, function () { try { req.abort(); } catch (e) {} fin(0, 'timeout'); });
     } catch (e) { fin(0, e.message); }
   }
+  // TizenBrew esegue questo file in un vm context (serviceLauncher.js) dove global, exports, __filename e __dirname non esistono:
+  // l'oggetto globale della sandbox si ottiene con Function('return this')(), e gli altri si passano solo se definiti.
+  var G = (function () { try { return Function('return this')() || {}; } catch (e) { return {}; } })();
+  var mod = typeof module !== 'undefined' ? module : { exports: {} };
+  var exp = typeof exports !== 'undefined' ? exports : mod.exports;
+  var fname = typeof __filename !== 'undefined' ? __filename : 'service.js', dname = typeof __dirname !== 'undefined' ? __dirname : '.';
   function run(ref, isFallback) {
     get(CDN + ref + '/service-core.js', ua, function (code, body) {
       if (code !== 200) {
         if (!isFallback && ref !== 'main') return run('main', true);
         console.log('MilanoHome boot: service-core non scaricabile (' + code + ' ' + (body || '').slice(0, 80) + ')'); return;
       }
-      try { global.MH_REF = ref; (new Function('require', 'module', 'exports', '__filename', '__dirname', body))(require, module, exports, __filename, __dirname); console.log('MilanoHome boot: core ' + ref.slice(0, 7)); }
+      try { G.MH_REF = ref; (new Function('require', 'module', 'exports', '__filename', '__dirname', 'MH_REF', body))(require, mod, exp, fname, dname, ref); console.log('MilanoHome boot: core ' + ref.slice(0, 7)); }
       catch (e) { console.log('MilanoHome boot: errore nel core: ' + e.message); }
     });
   }

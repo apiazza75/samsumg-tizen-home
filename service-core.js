@@ -4,7 +4,9 @@
    (al primo uso la TV chiede "Consenti"). Gli endpoint che agiscono sulla TV accettano solo richieste dalla pagina di TizenBrew. */
 (function () {
   'use strict';
-  var VERSION = '1.5.0';
+  var VERSION = '1.5.1';
+  // commit in uso: lo passa service.js come argomento MH_REF (nella sandbox di TizenBrew `global` non esiste)
+  var REF = (function () { try { return (typeof MH_REF !== 'undefined' && MH_REF) || Function('return this')().MH_REF || null; } catch (e) { return null; } })();
   var http = require('http');
   var fs = require('fs');
   var crypto = require('crypto');
@@ -111,7 +113,7 @@
   var server = http.createServer(function (req, res) {
     var url = req.url || '/', q = qs(url), path = url.split('?')[0];
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }); return res.end(); }
-    if (path === '/ping') return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: VERSION, ref: global.MH_REF || null, self: SELF_APP, watching: watch ? watch.id : null });
+    if (path === '/ping') return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: VERSION, ref: REF, self: SELF_APP, watching: watch ? watch.id : null });
     if (path === '/apps') return listApps(function (err, apps) { if (err) return json(res, 500, { error: err }); json(res, 200, { apps: apps }); });
     if (path === '/icon') {
       var p = q.path || '', okDir = ICON_DIRS.some(function (d) { return p.indexOf(d) === 0; });
