@@ -5,11 +5,13 @@ Funziona come **modulo di TizenBrew**: nessun certificato, nessuna firma.
 
 ## Installazione (una volta sola)
 
-1. Sulla TV apri **TizenBrew → Module Manager → Add module** e inserisci `gh/apiazza75/samsung-tizen-home`.
-2. Nelle impostazioni di TizenBrew imposta Milano Home come modulo ad **avvio automatico**.
+1. Sulla TV apri **TizenBrew → Module Manager (tasto verde) → Aggiungi modulo GitHub** e scrivi solo `apiazza75/samsung-tizen-home`, **senza** il prefisso `gh/`: lo aggiunge TizenBrew da solo (con `gh/` davanti il modulo diventa `gh/gh/…` e compare come "Unknown Module"). Il campo salva appena ne esci.
+2. Nelle impostazioni di TizenBrew (tasto blu) imposta Milano Home come modulo ad **avvio automatico**, ma solo dopo averlo aperto una volta a mano dalla home di TizenBrew.
 3. Sulla TV attiva *Impostazioni → Generale → Funzioni Smart → Avvio automatico ultima app*.
 
-Se sulla TV c'è ancora un modulo installato con un nome diverso (per esempio `gh/apiazza75/samsung-tizen-home@<commit>`), rimuovilo prima: Module Manager → seleziona il modulo → conferma la rimozione.
+Se sulla TV c'è ancora un modulo con un nome diverso (per esempio `…/samsung-tizen-home@<commit>`) o una card "Unknown Module", rimuovili prima: Module Manager → seleziona la card → conferma la rimozione.
+
+Se TizenBrew non arriva più alla sua home (per esempio perché l'avvio automatico punta a un modulo rimosso): avvialo tenendo premuta la **freccia ↑**, che salta l'avvio automatico per quella sessione, poi disattivalo da Impostazioni → Autoavvio → Disabilita.
 
 ## Aggiornamenti: automatici
 

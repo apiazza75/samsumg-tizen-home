@@ -132,7 +132,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
-  var VERSION='1.5.0';
+  var VERSION='1.5.1';
   var isTV=location.protocol!=='file:'&&location.hostname==='127.0.0.1'; // caricato da TizenBrew
   var toastEl=$('toast'),tt;
   function toast(m,ms){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},ms||1800);}
