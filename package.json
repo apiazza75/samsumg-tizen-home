@@ -1,6 +1,6 @@
 {
   "name": "samsung-tizen-home",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Milano Home: launcher pulito per Samsung Tizen, modulo per TizenBrew",
   "packageType": "app",
   "appName": "Milano Home",

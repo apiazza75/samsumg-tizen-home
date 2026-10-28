@@ -94,6 +94,8 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 .item.sel{background:var(--glass-strong);box-shadow:0 0 0 .18vw var(--focus)}
 .item.hid{opacity:.55}
 .menu .item{height:4vw;line-height:4vw;font-size:1.5vw}
+.pos{position:absolute;right:0;top:-2.6vw;font-size:.9vw;color:var(--fg-dim);font-variant-numeric:tabular-nums}
+.list{overflow:visible}
 </style>
 </head>
 <body>
@@ -122,17 +124,20 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
-  var onTV=typeof tizen!=='undefined';
+  var VERSION='1.3.2';
+  var isTV=location.protocol!=='file:'&&location.hostname==='127.0.0.1'; // caricato da TizenBrew
   var toastEl=$('toast'),tt;
   function toast(m,ms){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},ms||1800);}
+  function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
   /* ---------- orologio (allineato al minuto) ---------- */
   var months=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
   var days=['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'],dShort=['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
   function greeting(h){return h<5?'Buonanotte':h<12?'Buongiorno':h<18?'Buon pomeriggio':'Buonasera';}
-  function tick(){var d=new Date();$('clock').textContent=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+  var tickT=null;
+  function tick(){clearTimeout(tickT);var d=new Date();$('clock').textContent=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
     $('date').textContent=days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()];$('greet').textContent=greeting(d.getHours());
-    setTimeout(tick,60000-(d.getSeconds()*1000+d.getMilliseconds())+50);}
+    tickT=setTimeout(tick,60000-(d.getSeconds()*1000+d.getMilliseconds())+50);}
   tick();
 
   /* ---------- sfondi ---------- */
@@ -166,68 +171,83 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   loadWeather();setInterval(loadWeather,3600000);
 
   /* ---------- app ---------- */
-  var VERSION='1.3.1';
   var PREFERRED=['netflix','prime video','disney+','dazn','spotify','raiplay','mediaset infinity','now','sky go','apple tv','plex','paramount+','twitch','internet','samsung tv plus'];
   var HIDE=['smart hub','gallery','universal guide','e-manual','ambient','samsungtv','samsung health','bixby','multi view','camera','privacy','pc on tv','workspace','remote access','tv plus free','art mode','samsung promotion'];
   var SELF='samsung-tizen-home';
   var MODULE_LABEL={'tizentube':'YouTube <span>TizenTube · senza pubblicità</span>','jellyfin':'Jellyfin <span>film e serie dal PC</span>','moonlight':'Moonlight <span>giochi in streaming dal PC</span>'};
   var HDMI_NAMES=['HDMI','Decoder','Console','PlayStation','Xbox','PC','Apple TV','Fire TV','Lettore Blu-ray','Soundbar'];
-  var items=[],tiles=[],cur=0,ws=null,modules=[],allApps=[],catalog=[],lastApps=[],lastMods=[];
+  var items=[],tiles=[],cur=0,modules=[],allApps=[],catalog=[],lastApps=[],lastMods=[],demoMode=false;
   var appsEl=$('apps'),label=$('label');
   var SVC='http://127.0.0.1:8095',svcOk=false,dbg={};
 
   /* preferenze (ordine, nascoste, nomi HDMI, ultima app) e cache del catalogo, salvate sulla TV */
   var prefs={order:[],hidden:[],hdmi:{},last:null};
-  try{var pp=localStorage.getItem('mh_prefs');if(pp){var o=JSON.parse(pp);for(var k in o)prefs[k]=o[k];}}catch(e){}
+  try{var pp=localStorage.getItem('mh_prefs');if(pp){var o=JSON.parse(pp);for(var k in o)if(o[k]!==null&&o[k]!==undefined)prefs[k]=o[k];}}catch(e){}
   function savePrefs(){try{localStorage.setItem('mh_prefs',JSON.stringify(prefs))}catch(e){}}
   function hdmiName(n){return prefs.hdmi[n]||'HDMI '+n;}
+  function hdmiLabel(n){return esc(hdmiName(n))+' <span>'+(prefs.hdmi[n]?'HDMI '+n:'cambia sorgente')+'</span>';}
 
+  /* --- servizio locale (service.js) --- */
   function fetchJson(u,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej(new Error('timeout'))},ms||3000);
     fetch(u).then(function(r){return r.json()}).then(function(j){clearTimeout(t);res(j)}).catch(function(e){clearTimeout(t);rej(e)});});}
-  function waitService(tries){return fetchJson(SVC+'/ping',1500).then(function(j){svcOk=true;dbg.svc=j;
-      if(j.v&&j.v!==VERSION)toast('Servizio versione '+j.v+' (launcher '+VERSION+'): riavvia TizenBrew per aggiornarlo',6000);return true;}).catch(function(){
-    if(tries<=0)return false;return new Promise(function(r){setTimeout(function(){r(waitService(tries-1))},700)});});}
-  function loadModules(){return new Promise(function(res){if(!onTV&&location.protocol==='file:')return res([]);
-    try{ws=new WebSocket('ws://127.0.0.1:8081');var done=false;
-      ws.onopen=function(){ws.send(JSON.stringify({type:4,payload:false}));};
-      ws.onmessage=function(ev){try{var d=JSON.parse(ev.data);if(d.type===4&&!done){done=true;modules=d.payload||[];res(modules);}}catch(e){}};
-      ws.onerror=function(){if(!done){done=true;res([]);}};setTimeout(function(){if(!done){done=true;res([]);}},4000);
-    }catch(e){res([]);}});}
-  function loadApps(){return waitService(8).then(function(ok){
-    if(ok)return fetchJson(SVC+'/apps',6000).then(function(j){if(j.error){dbg.appsErr=j.error;return []}return j.apps||[]});
-    return new Promise(function(res){if(!onTV||!tizen.application.getAppsInfo)return res([]);
-      try{tizen.application.getAppsInfo(function(list){res(list||[])},function(e){dbg.appsErr=e&&e.message;res([])});}catch(e){dbg.appsErr=e.message;res([]);}});});}
+  var versionWarned=false;
+  function ping(){return fetchJson(SVC+'/ping',1500).then(function(j){svcOk=true;dbg.svc=j;
+    if(j.v&&j.v!==VERSION&&!versionWarned){versionWarned=true;toast('Servizio versione '+j.v+', launcher '+VERSION+': riavvia TizenBrew per allinearli',6000);}return true;}).catch(function(){return false});}
+  function waitService(tries){return ping().then(function(ok){if(ok||tries<=0)return ok;return new Promise(function(r){setTimeout(function(){r(waitService(tries-1))},700)});});}
+  function ensureService(){return svcOk?Promise.resolve(true):ping();}
+  function loadApps(){return waitService(8).then(function(ok){if(!ok)return null;
+    return fetchJson(SVC+'/apps',8000).then(function(j){if(j.error){dbg.appsErr=j.error;return null}return j.apps||[]}).catch(function(e){dbg.appsErr=String(e);return null});});}
   function iconUrl(a){if(!a.iconPath)return null;return SVC+'/icon?path='+encodeURIComponent(a.iconPath);}
-  function launchApp(id,name){if(svcOk){fetchJson(SVC+'/launch?id='+encodeURIComponent(id),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile')});return;}
-    try{tizen.application.launch(id,function(){},function(e){toast('Non riesco ad aprire '+name+': '+(e&&e.message||''),3000)});}catch(e){toast('Errore: '+e.message,3000);}}
-  function sendKey(key,okMsg){if(!svcOk){toast('Servizio non disponibile');return;}
-    fetchJson(SVC+'/key?key='+key,35000).then(function(j){if(j.error)toast(j.error,5000);else if(okMsg)toast(okMsg);}).catch(function(){toast('Nessuna risposta dalla TV',4000)});}
+  function noService(){toast('Servizio non attivo: riapri Milano Home da TizenBrew',4000);}
+  function launchApp(id,name){ensureService().then(function(ok){if(!ok)return noService();
+    fetchJson(SVC+'/launch?id='+encodeURIComponent(id),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile',3000)});});}
+  function sendKey(key,okMsg){ensureService().then(function(ok){if(!ok)return noService();
+    fetchJson(SVC+'/key?key='+key,35000).then(function(j){if(j.error)toast(j.error,5000);else if(okMsg)toast(okMsg);}).catch(function(){toast('Nessuna risposta dalla TV',4000)});});}
   var offArmed=0;
   function powerOff(){var now=Date.now();if(now-offArmed>3000){offArmed=now;toast('Premi di nuovo Invio per spegnere la TV',3000);return;}offArmed=0;toast('Spengo…');sendKey('KEY_POWER');}
 
+  /* --- servizio TizenBrew (ws 8081): moduli e loro avvio; riconnessione su richiesta --- */
+  var ws=null,wsWaiters=[],pendingNav=null,modulesRes=null;
+  function openWs(){try{ws=new WebSocket('ws://127.0.0.1:8081');}catch(e){ws=null;return;}
+    ws.onopen=function(){var w=wsWaiters;wsWaiters=[];w.forEach(function(cb){cb(true)});};
+    ws.onmessage=function(ev){try{var d=JSON.parse(ev.data);
+      if(d.type===4){modules=d.payload||[];dbg.modsOk=true;if(modulesRes){var r=modulesRes;modulesRes=null;r(modules);}else if(dbg.loaded){rebuild(modules,lastApps,true);}}
+      else if(d.type===5&&pendingNav){var m=pendingNav;pendingNav=null;location.href=m.appPath;}}catch(e){}};
+    ws.onerror=ws.onclose=function(){var w=wsWaiters;wsWaiters=[];w.forEach(function(cb){cb(false)});ws=null;};}
+  function withWs(cb){if(ws&&ws.readyState===1)return cb(true);wsWaiters.push(cb);if(!ws||ws.readyState>1)openWs();
+    setTimeout(function(){var i=wsWaiters.indexOf(cb);if(i>=0){wsWaiters.splice(i,1);cb(false);}},4000);}
+  function loadModules(){return new Promise(function(res){if(!isTV)return res(null);
+    modulesRes=res;withWs(function(ok){if(!ok){if(modulesRes){modulesRes=null;res(null);}return;}ws.send(JSON.stringify({type:4,payload:false}));
+      setTimeout(function(){if(modulesRes){modulesRes=null;res(null);}},4000);});});}
+  function launchModule(m){withWs(function(ok){if(!ok){toast('TizenBrew non risponde: riapri Milano Home',4000);return;}
+    ws.send(JSON.stringify({type:5,payload:m}));
+    if(m.evaluateScriptOnDocumentStart){pendingNav=m;setTimeout(function(){if(pendingNav===m){pendingNav=null;location.href=m.appPath;}},5000);}
+    else setTimeout(function(){location.href=m.appPath;},150);});}
+
+  /* --- riga delle app --- */
   function mkTile(it){var t=document.createElement('div');t.className='tile';
     var img=document.createElement('img');img.alt='';var gl=document.createElement('div');gl.className='glyph';gl.textContent=it.kind==='hdmi'?it.n:it.kind==='off'?'⏻':(it.name||'?').charAt(0).toUpperCase();
     var wm=document.createElement('div');wm.className='wm';wm.textContent=it.name;t.appendChild(img);t.appendChild(gl);t.appendChild(wm);
     if(it.icon){img.onload=function(){t.classList.add('has-icon');if(img.naturalWidth<=img.naturalHeight*1.05)t.classList.add('contain');};img.onerror=function(){t.classList.remove('has-icon')};img.src=it.icon;}
     t.addEventListener('click',function(){focus(tiles.indexOf(t));launch();});return t;}
-  function render(){appsEl.innerHTML='';tiles=[];items.forEach(function(it){var t=mkTile(it);appsEl.appendChild(t);tiles.push(t);});
-    var li=prefs.last?items.findIndex(function(x){return x.id===prefs.last}):-1;if(li>=0)cur=li;if(cur>=tiles.length)cur=0;focus(cur);}
+  var firstRender=true;
+  function render(){var want=firstRender?prefs.last:(items[cur]?null:null);var prevId=(!firstRender&&tiles.length&&tiles[cur]&&tiles[cur]._id)||null;
+    appsEl.innerHTML='';tiles=[];items.forEach(function(it){var t=mkTile(it);t._id=it.id;appsEl.appendChild(t);tiles.push(t);});
+    var target=firstRender?want:prevId;var li=target?items.findIndex(function(x){return x.id===target}):-1;
+    if(li>=0)cur=li;if(cur>=tiles.length)cur=0;if(tiles.length)firstRender=false;focus(cur);}
   function focus(i){if(!tiles.length)return;cur=(i+tiles.length)%tiles.length;tiles.forEach(function(t,k){t.classList.toggle('is-focus',k===cur)});
-    label.innerHTML=items[cur].label||items[cur].name;
+    var it=items[cur];if(it.label)label.innerHTML=it.label;else label.textContent=it.name;
     var vw=appsEl.parentNode.clientWidth,t=tiles[cur],x=t.offsetLeft,w=t.offsetWidth,total=appsEl.scrollWidth,shift=0;
     if(total>vw)shift=Math.min(Math.max(0,x+w/2-vw/2),total-vw);appsEl.style.transform='translateX('+(-shift)+'px)';}
   function launch(){var it=items[cur],t=tiles[cur];if(!it)return;t.classList.add('is-pressed');setTimeout(function(){t.classList.remove('is-pressed')},180);
     if(it.kind!=='off'&&it.kind!=='home'){prefs.last=it.id;savePrefs();}
-    if(!onTV&&!svcOk){toast('Apro '+it.name+' (anteprima)');return;}
-    try{if(it.kind==='app')launchApp(it.id,it.name);else if(it.kind==='module')launchModule(it.mod);
-      else if(it.kind==='hdmi'){toast('Passo a '+it.name+'…',4000);sendKey('KEY_HDMI'+it.n);}
-      else if(it.kind==='off')powerOff();
-      else if(it.kind==='home'){tizen.application.getCurrentApplication().exit();}}catch(e){toast('Errore: '+e.message);}}
-  function launchModule(m){if(!ws||ws.readyState!==1){toast('Servizio TizenBrew non raggiungibile');return;}
-    try{(m.keys||[]).forEach(function(k){try{tizen.tvinputdevice.registerKey(k)}catch(e){}});}catch(e){}
-    ws.send(JSON.stringify({type:5,payload:m}));setTimeout(function(){location.href=m.appPath;},150);}
+    if(!isTV||demoMode){toast('Apro '+it.name+' (anteprima)');return;}
+    if(it.kind==='app')launchApp(it.id,it.name);else if(it.kind==='module')launchModule(it.mod);
+    else if(it.kind==='hdmi'){toast('Passo a '+it.name+'…',4000);sendKey('KEY_HDMI'+it.n);}
+    else if(it.kind==='off')powerOff();
+    else if(it.kind==='home')sendKey('KEY_HOME');}
 
-  /* catalogo completo -> applica preferenze -> elenco visibile */
+  /* --- catalogo completo -> preferenze -> elenco visibile --- */
   function buildCatalog(mods,apps){var cat=[];
     mods.forEach(function(m){if(!m||!m.appName||(m.name||'').toLowerCase().indexOf(SELF)>=0)return;var key=(m.name||'').toLowerCase().replace(/^@[^/]+\//,'');
       var lab=null;Object.keys(MODULE_LABEL).forEach(function(k){if(key.indexOf(k)>=0)lab=MODULE_LABEL[k];});
@@ -243,75 +263,83 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
       var store=/^\d{8,}/.test(a.id)||/^[A-Za-z0-9]{10}\./.test(a.id);
       var hid=dup||r<0||a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0});
       cat.push({kind:'app',id:a.id,name:a.name,icon:(a.iconOk===false?null:iconUrl(a)),def:!hid,rank:r>=0?10+r:(store?100:900),sys:dup||generic||!store,dup:dup});});
-    [1,2,3,4].forEach(function(n,i){cat.push({kind:'hdmi',id:'hdmi'+n,n:n,name:hdmiName(n),label:hdmiName(n)+' <span>'+(prefs.hdmi[n]?'HDMI '+n:'cambia sorgente')+'</span>',def:i<2,rank:60+i});});
+    [1,2,3,4].forEach(function(n,i){cat.push({kind:'hdmi',id:'hdmi'+n,n:n,name:hdmiName(n),label:hdmiLabel(n),def:i<2,rank:60+i});});
     cat.push({kind:'home',id:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>',def:true,rank:998});
     cat.push({kind:'off',id:'off',name:'Spegni',label:'Spegni la TV <span>Invio due volte</span>',def:true,rank:999});
     return cat;}
+  function isVisible(c){var h=prefs.hidden.indexOf(c.id)>=0;var inOrder=prefs.order.indexOf(c.id)>=0;return inOrder?!h:(c.def&&!h);}
   function applyPrefs(){var byId={};catalog.forEach(function(c){byId[c.id]=c});var out=[];
     prefs.order.forEach(function(id){if(byId[id]){out.push(byId[id]);delete byId[id];}});
     Object.keys(byId).map(function(k){return byId[k]}).sort(function(a,b){return a.rank-b.rank||a.name.localeCompare(b.name)}).forEach(function(c){out.push(c)});
-    items=out.filter(function(c){var h=prefs.hidden.indexOf(c.id)>=0;var inOrder=prefs.order.indexOf(c.id)>=0;return inOrder?!h:(c.def&&!h);});
-    if(!items.length)items=out.filter(function(c){return c.def});
-    return out;}
+    items=out.filter(isVisible);if(!items.length)items=out.filter(function(c){return c.def});return out;}
   function rebuild(mods,apps){lastMods=mods;lastApps=apps;allApps=apps;catalog=buildCatalog(mods,apps);applyPrefs();render();}
+  function buildDemo(){demoMode=true;catalog=[{name:'YouTube',label:'YouTube <span>TizenTube</span>'},{name:'Netflix'},{name:'Prime Video'},{name:'Disney+'},{name:'DAZN'},{name:'Jellyfin'},{name:'Moonlight'},{name:'HDMI 1',kind:'hdmi',n:1},{name:'Home Samsung'},{name:'Spegni',kind:'off'}].map(function(c,i){c.kind=c.kind||'app';c.id='demo'+i;c.def=true;c.rank=i;return c;});applyPrefs();render();}
 
-  /* 1) rendering immediato dalla cache, 2) aggiornamento dai dati freschi */
+  /* 1) rendering immediato dalla cache, 2) aggiornamento dai dati freschi; ogni fonte che fallisce conserva l'ultimo dato buono */
   var cached=null;try{cached=JSON.parse(localStorage.getItem('mh_cache')||'null');}catch(e){}
   if(cached&&cached.apps&&cached.apps.length){rebuild(cached.mods||[],cached.apps);}
   Promise.all([loadModules(),loadApps()]).then(function(r){
-    var mods=r[0],apps=r[1];
-    var demo=(!onTV&&!svcOk&&apps.length===0&&mods.length===0);
-    if(demo){catalog=[{name:'YouTube',label:'YouTube <span>TizenTube</span>'},{name:'Netflix'},{name:'Prime Video'},{name:'Disney+'},{name:'DAZN'},{name:'Jellyfin'},{name:'Moonlight'},{name:'HDMI 1',kind:'hdmi',n:1},{name:'Home Samsung'},{name:'Spegni',kind:'off'}].map(function(c,i){c.kind=c.kind||'app';c.id='demo'+i;c.def=true;c.rank=i;return c;});applyPrefs();render();return;}
-    if(apps.length||mods.length){rebuild(mods,apps);try{localStorage.setItem('mh_cache',JSON.stringify({mods:mods.map(function(m){return {fullName:m.fullName,name:m.name,appName:m.appName,appPath:m.appPath,keys:m.keys,packageType:m.packageType,moduleType:m.moduleType,serviceFile:m.serviceFile,mainFile:m.mainFile,tizenAppId:m.tizenAppId,evaluateScriptOnDocumentStart:m.evaluateScriptOnDocumentStart,version:m.version}}),apps:apps.map(function(a){return {id:a.id,name:a.name,iconPath:a.iconPath,show:a.show,iconOk:a.iconOk}})}));}catch(e){}}
-    else if(!cached){label.textContent='Nessuna app trovata · premi ↑ e apri Diagnostica';}
-    dbg.loaded=true;
+    var mods=r[0],apps=r[1];dbg.loaded=true;
+    if(!isTV){if(!cached)buildDemo();return;}
+    var modsOk=mods!==null,appsOk=apps!==null;
+    if(!modsOk)mods=lastMods;if(!appsOk)apps=lastApps;
+    if(mods.length||apps.length)rebuild(mods,apps);
+    else label.textContent='Nessuna app trovata · premi ↑ e apri Diagnostica';
+    if((modsOk||appsOk)&&apps.length){try{localStorage.setItem('mh_cache',JSON.stringify({mods:mods.map(function(m){return {fullName:m.fullName,name:m.name,appName:m.appName,appPath:m.appPath,keys:m.keys,packageType:m.packageType,moduleType:m.moduleType,serviceFile:m.serviceFile,mainFile:m.mainFile,tizenAppId:m.tizenAppId,evaluateScriptOnDocumentStart:m.evaluateScriptOnDocumentStart,version:m.version}}),apps:apps.map(function(a){return {id:a.id,name:a.name,iconPath:a.iconPath,show:a.show,iconOk:a.iconOk}})}));}catch(e){}}
   });
 
   /* ---------- menu (freccia su) ---------- */
-  var panel=$('panel'),plist=$('plist'),mode=null,psel=0,prows=[];
+  var panel=$('panel'),plist=$('plist'),mode=null,psel=0,prows=[],pickAll=false,pick=[],vis={};
+  function showPanel(cls){plist.className=cls;panel.classList.add('show');drawRows();}
   function openMenu(){mode='menu';psel=0;$('ptitle').textContent='Milano Home '+VERSION;$('pdesc').textContent='Invio per scegliere · Indietro per chiudere';
     prows=[{t:'Scegli e ordina le app',a:function(){openPicker(false)}},{t:'Nomi degli ingressi HDMI',a:openHdmi},{t:'Mostra tutte le app di sistema',a:function(){openPicker(true)}},
       {t:'Ripristina ordine predefinito',a:function(){prefs.order=[];prefs.hidden=[];savePrefs();applyPrefs();render();closePanel();toast('Ordine ripristinato');}},{t:'Diagnostica',a:function(){closePanel();toggleDebug();}}];
-    plist.className='inner menu';drawRows();panel.classList.add('show');}
-  var pickAll=false,pick=[];
-  function openPicker(all){mode='pick';pickAll=!!all;psel=0;$('ptitle').textContent=all?'Tutte le app di sistema':'Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → = sposta · Indietro = salva e chiudi';
-    pick=applyPrefs().filter(function(c){return pickAll||!c.sys||isVisible(c)||prefs.order.indexOf(c.id)>=0;});
-    plist.className='inner';drawRows();panel.classList.add('show');}
-  function openHdmi(){mode='hdmi';psel=0;$('ptitle').textContent='Nomi degli ingressi HDMI';$('pdesc').textContent='← → cambia nome · Indietro = salva e chiudi';
-    plist.className='inner menu';drawRows();panel.classList.add('show');}
-  function isVisible(c){var h=prefs.hidden.indexOf(c.id)>=0;var inOrder=prefs.order.indexOf(c.id)>=0;return inOrder?!h:(c.def&&!h);}
-  function drawRows(){plist.innerHTML='';var rows=mode==='menu'?prows:mode==='hdmi'?[1,2,3,4]:pick;
-    rows.forEach(function(r,i){var d=document.createElement('div');d.className='item'+(i===psel?' sel':'');
+    showPanel('inner menu');}
+  function openPicker(all){mode='pick';pickAll=!!all;psel=0;vis={};$('ptitle').textContent=all?'Tutte le app di sistema':'Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → = sposta · Indietro = salva e chiudi';
+    pick=applyPrefs().filter(function(c){return pickAll||!c.sys||isVisible(c);});showPanel('inner');}
+  function openHdmi(){mode='hdmi';psel=0;$('ptitle').textContent='Nomi degli ingressi HDMI';$('pdesc').textContent='← → cambia nome · Indietro = salva e chiudi';showPanel('inner menu');}
+  function isVisibleRaw(c){return vis[c.id]!==undefined?vis[c.id]:isVisible(c);}
+  function rowsOf(){return mode==='menu'?prows:mode==='hdmi'?[1,2,3,4]:pick;}
+  function drawRows(){plist.innerHTML='';var rows=rowsOf();
+    var rowH=(mode==='pick'?3.4:4)*window.innerWidth/100,listH=plist.parentNode.clientHeight||rowH*10,N=Math.max(3,Math.floor(listH/rowH)),start=Math.max(0,Math.min(psel-Math.floor(N/2),rows.length-N));
+    rows.slice(start,start+N).forEach(function(r,k){var i=start+k;var d=document.createElement('div');d.className='item'+(i===psel?' sel':'');
       if(mode==='menu'){d.textContent=r.t;}
       else if(mode==='hdmi'){d.innerHTML='<span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent='HDMI '+r+'  →  '+hdmiName(r);d.querySelector('.id').textContent='← →';}
       else{var on=isVisibleRaw(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.dup?' (duplicato)':(r.sys&&pickAll)?' (sistema)':'');d.querySelector('.id').textContent=(pickAll&&r.kind==='app')?r.id:'';}
       plist.appendChild(d);});
-    var rowH=mode==='pick'?3.4:4,vwpx=window.innerWidth/100,listH=plist.parentNode.clientHeight,shift=Math.max(0,(psel+1)*rowH*vwpx-listH+rowH*vwpx);plist.style.transform='translateY(-'+shift+'px)';}
-  var vis={};function isVisibleRaw(c){return vis[c.id]!==undefined?vis[c.id]:isVisible(c);}
-  function commitOrder(){var hidden=pick.filter(function(c){return !isVisibleRaw(c)}).map(function(c){return c.id});var order=pick.map(function(c){return c.id});prefs.hidden=hidden;prefs.order=order;savePrefs();applyPrefs();render();}
-  function closePanel(){if(mode==='pick')commitOrder();if(mode==='hdmi'){savePrefs();rebuild(lastMods,lastApps);}panel.classList.remove('show');mode=null;vis={};}
-  function panelKey(k){var rows=mode==='menu'?prows:mode==='hdmi'?[1,2,3,4]:pick;
+    if(rows.length>N){var pos=document.createElement('div');pos.className='pos';pos.textContent=(psel+1)+' / '+rows.length;plist.appendChild(pos);}
+    if(!rows.length){var e=document.createElement('div');e.className='item';e.textContent='Nessuna voce';plist.appendChild(e);}}
+  // salva solo le voci toccabili dalla lista corrente; conserva ordine/nascoste delle voci non in lista
+  function commitOrder(){if(!pick.length)return;var ids=pick.map(function(c){return c.id});
+    var keepO=prefs.order.filter(function(id){return ids.indexOf(id)<0}),keepH=prefs.hidden.filter(function(id){return ids.indexOf(id)<0});
+    var order=[],hidden=[];pick.forEach(function(c){var on=isVisibleRaw(c);if(on||c.def||prefs.order.indexOf(c.id)>=0){order.push(c.id);if(!on)hidden.push(c.id);}});
+    prefs.order=order.concat(keepO);prefs.hidden=hidden.concat(keepH);savePrefs();applyPrefs();render();}
+  function closePanel(){if(mode==='pick')commitOrder();
+    if(mode==='hdmi'){savePrefs();catalog.forEach(function(c){if(c.kind==='hdmi'){c.name=hdmiName(c.n);c.label=hdmiLabel(c.n);}});applyPrefs();render();}
+    panel.classList.remove('show');mode=null;vis={};}
+  function panelKey(k){var rows=rowsOf();
+    if(k===10009||k===27||k===8){closePanel();return;}
+    if(!rows.length)return;
     if(k===40){psel=(psel+1)%rows.length;drawRows();}else if(k===38){psel=(psel-1+rows.length)%rows.length;drawRows();}
     else if(k===13){if(mode==='menu')rows[psel].a();else if(mode==='pick'){var c=pick[psel];vis[c.id]=!isVisibleRaw(c);drawRows();}}
     else if((k===37||k===39)&&mode==='pick'){var j=k===37?psel-1:psel+1;if(j<0||j>=pick.length)return;var tmp=pick[psel];pick[psel]=pick[j];pick[j]=tmp;psel=j;drawRows();}
     else if((k===37||k===39)&&mode==='hdmi'){var n=rows[psel],idx=HDMI_NAMES.indexOf(prefs.hdmi[n]||'HDMI');idx=(idx+(k===39?1:-1)+HDMI_NAMES.length)%HDMI_NAMES.length;
-      if(HDMI_NAMES[idx]==='HDMI')delete prefs.hdmi[n];else prefs.hdmi[n]=HDMI_NAMES[idx];drawRows();}
-    else if(k===10009||k===27||k===8){closePanel();}}
+      if(HDMI_NAMES[idx]==='HDMI')delete prefs.hdmi[n];else prefs.hdmi[n]=HDMI_NAMES[idx];drawRows();}}
   function toggleDebug(){var d=$('debug');if(d.classList.contains('show')){d.classList.remove('show');return;}
-    var lines=['MILANO HOME '+VERSION+' · diagnostica  (Indietro per chiudere)','servizio: '+(svcOk?'ok '+JSON.stringify(dbg.svc):'assente')+'  ·  tizen nella pagina: '+onTV+'  ·  app: '+allApps.length+'  ·  moduli: '+modules.map(function(m){return m.name}).join(', ')+(dbg.appsErr?'  ·  errore: '+dbg.appsErr:'')];
+    var lines=['MILANO HOME '+VERSION+' · diagnostica  (↑ ↓ scorri · Indietro chiude)','servizio: '+(svcOk?'ok '+JSON.stringify(dbg.svc):'assente')+'  ·  moduli: '+(dbg.modsOk?modules.map(function(m){return m.name}).join(', '):'non ricevuti')+'  ·  app: '+allApps.length+(dbg.appsErr?'  ·  errore: '+dbg.appsErr:'')+'  ·  in cache: '+(cached&&cached.apps?cached.apps.length:0)];
     allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+(a.iconOk===true?'[icona] ':a.iconOk===false?'[icona assente] ':'')+a.name+'  ·  '+a.id);});
-    d.textContent=lines.join('\n');d.classList.add('show');}
+    d.textContent=lines.join('\n');d.scrollTop=0;d.classList.add('show');}
 
   /* ---------- telecomando ---------- */
   var hintT=setTimeout(function(){$('hint').classList.add('fade')},12000);
   document.addEventListener('keydown',function(e){var k=e.keyCode;
     $('hint').classList.remove('fade');clearTimeout(hintT);hintT=setTimeout(function(){$('hint').classList.add('fade')},12000);
-    if($('debug').classList.contains('show')){if(k===10009||k===27||k===8||k===13){$('debug').classList.remove('show');e.preventDefault();}return;}
+    var dd=$('debug');if(dd.classList.contains('show')){if(k===10009||k===27||k===8||k===13)dd.classList.remove('show');else if(k===40)dd.scrollTop+=dd.clientHeight*0.8;else if(k===38)dd.scrollTop-=dd.clientHeight*0.8;e.preventDefault();return;}
     if(mode){panelKey(k);e.preventDefault();return;}
     if(k===39){focus(cur+1);e.preventDefault();}else if(k===37){focus(cur-1);e.preventDefault();}
     else if(k===13){launch();e.preventDefault();}
     else if(k===38){openMenu();e.preventDefault();}
-    else if(k===10009||k===27){e.preventDefault();if(history.length>1)history.back();else if(onTV)tizen.application.getCurrentApplication().exit();}
+    else if(k===10009||k===27){e.preventDefault();if(history.length>1)history.back();}
   });
   window.addEventListener('resize',function(){focus(cur)});
   document.addEventListener('visibilitychange',function(){if(!document.hidden){tick();loadWeather();}});
