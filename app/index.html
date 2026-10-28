@@ -76,6 +76,23 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .credit{position:fixed;left:5vw;bottom:1vh;font-size:.68vw;color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase;opacity:.7}
 .hint{position:fixed;right:5vw;bottom:1vh;font-size:.68vw;color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+
+.panel{position:fixed;top:0;left:0;right:0;bottom:0;z-index:30;display:none;background:rgba(5,7,14,.78)}
+.panel.show{display:block}
+.sheet{position:absolute;top:6vh;left:50%;width:70vw;margin-left:-35vw;bottom:6vh;border-radius:1.8vw;background:rgba(18,22,36,.96);border:1px solid var(--glass-edge);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 30px 80px rgba(0,0,0,.6);padding:2vw 2.4vw;overflow:hidden}
+.sheet h2{margin:0 0 .4vw;font-size:2vw;font-weight:600;letter-spacing:-.02em}
+.sheet p{margin:0 0 1.2vw;font-size:1vw;color:var(--fg-dim)}
+.list{position:absolute;top:7.5vw;left:2.4vw;right:2.4vw;bottom:2vw;overflow:hidden}
+.inner{transition:transform .25s}
+.item{height:3.4vw;line-height:3.4vw;padding:0 1.2vw;border-radius:.9vw;font-size:1.25vw;font-weight:500;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;white-space:nowrap;overflow:hidden}
+.item .ck{width:1.6vw;height:1.6vw;border-radius:.4vw;border:2px solid rgba(255,255,255,.5);margin-right:1vw;-webkit-flex:0 0 auto;flex:0 0 auto;text-align:center;line-height:1.5vw;font-size:1.1vw}
+.item.on .ck{background:#fff;color:#0b0e17;border-color:#fff}
+.item .nm{-webkit-flex:1 1 auto;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis}
+.item .id{color:var(--fg-dim);font-size:.8vw;margin-left:1vw;font-family:monospace}
+.item.sel{background:var(--glass-strong);box-shadow:0 0 0 .18vw var(--focus)}
+.item.hid{opacity:.55}
+.menu .item{height:4vw;line-height:4vw;font-size:1.5vw}
 </style>
 </head>
 <body>
@@ -97,8 +114,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 </div>
 <div class="toast" id="toast"></div>
 <div class="debug" id="debug"></div>
+<div class="panel" id="panel"><div class="sheet"><h2 id="ptitle"></h2><p id="pdesc"></p><div class="list"><div class="inner" id="plist"></div></div></div></div>
 <div class="credit" id="credit"></div>
-<div class="hint">Indietro = TizenBrew · Home = Samsung</div>
+<div class="hint">↑ Menu · Indietro = TizenBrew · Home = Samsung</div>
 
 <script>
 (function(){
@@ -145,85 +163,119 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   loadWeather();setInterval(loadWeather,3600000);
 
   /* ---------- app ---------- */
-  // Nomi (minuscolo) delle app Samsung da mostrare in prima fila, nell'ordine desiderato. Le altre app visibili seguono.
   var PREFERRED=['netflix','prime video','disney+','dazn','spotify','raiplay','mediaset infinity','now','sky go','apple tv','plex','paramount+','twitch','internet','samsung tv plus'];
   var HIDE=['smart hub','gallery','universal guide','e-manual','ambient','samsungtv','samsung health','bixby','multi view','camera','privacy','pc on tv','workspace','remote access','tv plus free','art mode','samsung promotion'];
-  var SELF='samsung-tizen-home'; // nome del modulo (gh/apiazza75/samsung-tizen-home)
+  var SELF='samsung-tizen-home';
   var MODULE_LABEL={'tizentube':'YouTube <span>TizenTube · senza pubblicità</span>','jellyfin':'Jellyfin <span>film e serie dal PC</span>','moonlight':'Moonlight <span>giochi in streaming dal PC</span>'};
-  var items=[],tiles=[],cur=0,ws=null,modules=[];
+  var HDMI=[1,2,3,4].map(function(n){return {kind:'hdmi',id:'hdmi'+n,n:n,name:'HDMI '+n,label:'HDMI '+n+' <span>cambia sorgente</span>'}});
+  var items=[],tiles=[],cur=0,ws=null,modules=[],allApps=[],catalog=[];
   var appsEl=$('apps'),label=$('label');
+  var SVC='http://127.0.0.1:8095',svcOk=false,dbg={};
 
-  function mkTile(it){var t=document.createElement('div');t.className='tile';
-    var img=document.createElement('img');img.alt='';var gl=document.createElement('div');gl.className='glyph';gl.textContent=(it.name||'?').charAt(0).toUpperCase();
-    var wm=document.createElement('div');wm.className='wm';wm.textContent=it.name;t.appendChild(img);t.appendChild(gl);t.appendChild(wm);
-    if(it.icon){img.onload=function(){t.classList.add('has-icon');if(img.naturalWidth<=img.naturalHeight*1.05)t.classList.add('contain');};img.onerror=function(){t.classList.remove('has-icon')};img.src=it.icon;}
-    t.addEventListener('click',function(){focus(tiles.indexOf(t));launch();});
-    return t;}
-  function render(){appsEl.innerHTML='';tiles=[];items.forEach(function(it){var t=mkTile(it);appsEl.appendChild(t);tiles.push(t);});focus(0);}
-  function focus(i){if(!tiles.length)return;cur=(i+tiles.length)%tiles.length;tiles.forEach(function(t,k){t.classList.toggle('is-focus',k===cur)});
-    label.innerHTML=items[cur].label||items[cur].name;
-    var vw=appsEl.parentNode.clientWidth,t=tiles[cur],x=t.offsetLeft,w=t.offsetWidth,total=appsEl.scrollWidth,shift=0;
-    if(total>vw)shift=Math.min(Math.max(0,x+w/2-vw/2),total-vw);appsEl.style.transform='translateX('+(-shift)+'px)';}
-  function launch(){var it=items[cur],t=tiles[cur];t.classList.add('is-pressed');setTimeout(function(){t.classList.remove('is-pressed')},180);
-    if(!onTV&&!svcOk){toast('Apro '+it.name+' (anteprima)');return;}
-    try{
-      if(it.kind==='app'){launchApp(it.id,it.name);}
-      else if(it.kind==='module'){launchModule(it.mod);}
-      else if(it.kind==='home'){tizen.application.getCurrentApplication().exit();}
-    }catch(e){toast('Errore: '+e.message);}
-  }
-  function launchModule(m){if(!ws||ws.readyState!==1){toast('Servizio TizenBrew non raggiungibile');return;}
-    try{(m.keys||[]).forEach(function(k){try{tizen.tvinputdevice.registerKey(k)}catch(e){}});}catch(e){}
-    ws.send(JSON.stringify({type:5,payload:m}));setTimeout(function(){location.href=m.appPath;},150);}
+  /* preferenze: ordine e visibilità, salvate sulla TV */
+  var prefs={order:[],hidden:[]};
+  try{var pp=localStorage.getItem('mh_prefs');if(pp)prefs=JSON.parse(pp);}catch(e){}
+  function savePrefs(){try{localStorage.setItem('mh_prefs',JSON.stringify(prefs))}catch(e){}}
 
-  // 1) moduli TizenBrew (TizenTube, Jellyfin, Moonlight…) via servizio TizenBrew (ws 8081)
+  function fetchJson(u,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej(new Error('timeout'))},ms||3000);
+    fetch(u).then(function(r){return r.json()}).then(function(j){clearTimeout(t);res(j)}).catch(function(e){clearTimeout(t);rej(e)});});}
+  function waitService(tries){return fetchJson(SVC+'/ping',1500).then(function(j){svcOk=true;dbg.svc=j;return true;}).catch(function(){
+    if(tries<=0)return false;return new Promise(function(r){setTimeout(function(){r(waitService(tries-1))},700)});});}
   function loadModules(){return new Promise(function(res){if(!onTV&&location.protocol==='file:')return res([]);
     try{ws=new WebSocket('ws://127.0.0.1:8081');var done=false;
       ws.onopen=function(){ws.send(JSON.stringify({type:4,payload:false}));};
       ws.onmessage=function(ev){try{var d=JSON.parse(ev.data);if(d.type===4&&!done){done=true;modules=d.payload||[];res(modules);}}catch(e){}};
       ws.onerror=function(){if(!done){done=true;res([]);}};setTimeout(function(){if(!done){done=true;res([]);}},4000);
     }catch(e){res([]);}});}
-  // 2) app Samsung installate: prima dal nostro servizio (service.js, porta 8095), poi dall'API diretta
-  var SVC='http://127.0.0.1:8095',svcOk=false,dbg={};
-  function fetchJson(u,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej(new Error('timeout'))},ms||3000);
-    fetch(u).then(function(r){return r.json()}).then(function(j){clearTimeout(t);res(j)}).catch(function(e){clearTimeout(t);rej(e)});});}
-  function waitService(tries){return fetchJson(SVC+'/ping',1500).then(function(j){svcOk=true;dbg.svc=j;return true;}).catch(function(){
-    if(tries<=0)return false;return new Promise(function(r){setTimeout(function(){r(waitService(tries-1))},700)});});}
   function loadApps(){return waitService(8).then(function(ok){
     if(ok)return fetchJson(SVC+'/apps',6000).then(function(j){if(j.error){dbg.appsErr=j.error;return []}return j.apps||[]});
     return new Promise(function(res){if(!onTV||!tizen.application.getAppsInfo)return res([]);
       try{tizen.application.getAppsInfo(function(list){res(list||[])},function(e){dbg.appsErr=e&&e.message;res([])});}catch(e){dbg.appsErr=e.message;res([]);}});});}
   function iconUrl(a){if(!a.iconPath)return null;return svcOk?SVC+'/icon?path='+encodeURIComponent(a.iconPath):'file://'+a.iconPath;}
-  var allApps=[];
   function launchApp(id,name){if(svcOk){fetchJson(SVC+'/launch?id='+encodeURIComponent(id),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile')});return;}
     try{tizen.application.launch(id,function(){},function(e){toast('Non riesco ad aprire '+name+': '+(e&&e.message||''),3000)});}catch(e){toast('Errore: '+e.message,3000);}}
+  function switchHdmi(n){if(!svcOk){toast('Servizio non disponibile');return;}toast('Passo a HDMI '+n+'…',4000);
+    fetchJson(SVC+'/key?key=KEY_HDMI'+n,35000).then(function(j){if(j.error)toast('HDMI: '+j.error,5000)}).catch(function(){toast('HDMI: nessuna risposta',4000)});}
 
-  Promise.all([loadModules(),loadApps()]).then(function(r){
-    var mods=r[0],apps=r[1],out=[];allApps=apps;
-    var byName={};apps.forEach(function(a){if(!a||!a.name)return;var n=a.name.toLowerCase();if(a.show===false)return;byName[n]=a;});
-    PREFERRED.forEach(function(p){Object.keys(byName).forEach(function(n){if(n===p||n.indexOf(p)===0){var a=byName[n];delete byName[n];out.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a)});}});});
+  function mkTile(it){var t=document.createElement('div');t.className='tile';
+    var img=document.createElement('img');img.alt='';var gl=document.createElement('div');gl.className='glyph';gl.textContent=it.kind==='hdmi'?it.n:(it.name||'?').charAt(0).toUpperCase();
+    var wm=document.createElement('div');wm.className='wm';wm.textContent=it.name;t.appendChild(img);t.appendChild(gl);t.appendChild(wm);
+    if(it.icon){img.onload=function(){t.classList.add('has-icon');if(img.naturalWidth<=img.naturalHeight*1.05)t.classList.add('contain');};img.onerror=function(){t.classList.remove('has-icon')};img.src=it.icon;}
+    t.addEventListener('click',function(){focus(tiles.indexOf(t));launch();});return t;}
+  function render(){appsEl.innerHTML='';tiles=[];items.forEach(function(it){var t=mkTile(it);appsEl.appendChild(t);tiles.push(t);});if(cur>=tiles.length)cur=0;focus(cur);}
+  function focus(i){if(!tiles.length)return;cur=(i+tiles.length)%tiles.length;tiles.forEach(function(t,k){t.classList.toggle('is-focus',k===cur)});
+    label.innerHTML=items[cur].label||items[cur].name;
+    var vw=appsEl.parentNode.clientWidth,t=tiles[cur],x=t.offsetLeft,w=t.offsetWidth,total=appsEl.scrollWidth,shift=0;
+    if(total>vw)shift=Math.min(Math.max(0,x+w/2-vw/2),total-vw);appsEl.style.transform='translateX('+(-shift)+'px)';}
+  function launch(){var it=items[cur],t=tiles[cur];if(!it)return;t.classList.add('is-pressed');setTimeout(function(){t.classList.remove('is-pressed')},180);
+    if(!onTV&&!svcOk){toast('Apro '+it.name+' (anteprima)');return;}
+    try{if(it.kind==='app')launchApp(it.id,it.name);else if(it.kind==='module')launchModule(it.mod);else if(it.kind==='hdmi')switchHdmi(it.n);
+      else if(it.kind==='home'){tizen.application.getCurrentApplication().exit();}}catch(e){toast('Errore: '+e.message);}}
+  function launchModule(m){if(!ws||ws.readyState!==1){toast('Servizio TizenBrew non raggiungibile');return;}
+    try{(m.keys||[]).forEach(function(k){try{tizen.tvinputdevice.registerKey(k)}catch(e){}});}catch(e){}
+    ws.send(JSON.stringify({type:5,payload:m}));setTimeout(function(){location.href=m.appPath;},150);}
+
+  /* catalogo completo -> applica preferenze -> elenco visibile */
+  function buildCatalog(mods,apps){var cat=[];
     mods.forEach(function(m){if(!m||!m.appName||(m.name||'').toLowerCase().indexOf(SELF)>=0)return;var key=(m.name||'').toLowerCase().replace(/^@[^/]+\//,'');
       var lab=null;Object.keys(MODULE_LABEL).forEach(function(k){if(key.indexOf(k)>=0)lab=MODULE_LABEL[k];});
-      var it={kind:'module',mod:m,name:m.appName,label:lab,icon:null};
-      if(key.indexOf('tizentube')>=0)out.splice(0,0,it);else out.push(it);});
-    Object.keys(byName).forEach(function(n){var a=byName[n];var hid=HIDE.some(function(h){return n.indexOf(h)>=0});if(hid)return;if(a.id&&a.id.indexOf('org.tizen')===0)return;
-      out.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a)});});
-    out.push({kind:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>'});
+      cat.push({kind:'module',id:'mod:'+m.fullName,mod:m,name:m.appName,label:lab,icon:null,def:true,rank:key.indexOf('tizentube')>=0?0:50});});
+    apps.forEach(function(a){if(!a||!a.name||!a.id)return;var n=a.name.toLowerCase();var r=PREFERRED.findIndex(function(p){return n===p||n.indexOf(p)===0});
+      var hid=a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0})||a.id.indexOf('org.tizen')===0;
+      cat.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a),def:!hid,rank:r>=0?10+r:(hid?900:100),sys:a.show===false});});
+    HDMI.forEach(function(h,i){cat.push({kind:'hdmi',id:h.id,n:h.n,name:h.name,label:h.label,def:i<2,rank:60+i});});
+    cat.push({kind:'home',id:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>',def:true,rank:999});
+    return cat;}
+  function applyPrefs(){var byId={};catalog.forEach(function(c){byId[c.id]=c});var out=[];
+    prefs.order.forEach(function(id){if(byId[id]){out.push(byId[id]);delete byId[id];}});
+    Object.keys(byId).map(function(k){return byId[k]}).sort(function(a,b){return a.rank-b.rank||a.name.localeCompare(b.name)}).forEach(function(c){out.push(c)});
+    items=out.filter(function(c){var h=prefs.hidden.indexOf(c.id)>=0;var inOrder=prefs.order.indexOf(c.id)>=0;return inOrder?!h:(c.def&&!h);});
+    if(!items.length)items=out.filter(function(c){return c.def});
+    return out;}
+
+  Promise.all([loadModules(),loadApps()]).then(function(r){
+    var mods=r[0],apps=r[1];allApps=apps;catalog=buildCatalog(mods,apps);
     var demo=(!onTV&&!svcOk&&apps.length===0&&mods.length===0);
-    if(demo)out=[{kind:'app',name:'YouTube',label:'YouTube <span>TizenTube</span>'},{kind:'app',name:'Netflix'},{kind:'app',name:'Prime Video'},{kind:'app',name:'Disney+'},{kind:'app',name:'DAZN'},{kind:'app',name:'Jellyfin'},{kind:'app',name:'Moonlight'},{kind:'home',name:'Home Samsung'}];
-    items=out;render();
-    $('status').textContent=(demo?'anteprima · ':'')+'servizio '+(svcOk?'ok':'assente')+' · tizen '+(onTV?'ok':'assente')+' · app '+apps.length+' · moduli '+mods.length+(dbg.appsErr?' · errore: '+dbg.appsErr:'');
+    if(demo){catalog=[{name:'YouTube',label:'YouTube <span>TizenTube</span>'},{name:'Netflix'},{name:'Prime Video'},{name:'Disney+'},{name:'DAZN'},{name:'Jellyfin'},{name:'Moonlight'},{name:'HDMI 1',kind:'hdmi',n:1},{name:'Home Samsung'}].map(function(c,i){c.kind=c.kind||'app';c.id='demo'+i;c.def=true;c.rank=i;return c;});}
+    applyPrefs();render();
+    $('status').textContent=(demo?'anteprima · ':'')+'servizio '+(svcOk?'ok':'assente')+' · app '+apps.length+' · moduli '+mods.length+(dbg.appsErr?' · errore: '+dbg.appsErr:'');
   });
+
+  /* ---------- menu (freccia su) ---------- */
+  var panel=$('panel'),plist=$('plist'),mode=null,psel=0,prows=[];
+  function openMenu(){mode='menu';psel=0;$('ptitle').textContent='Milano Home';$('pdesc').textContent='Invio per scegliere · Indietro per chiudere';
+    prows=[{t:'Scegli e ordina le app',a:openPicker},{t:'Mostra tutte le app di sistema',a:function(){openPicker(true)}},{t:'Ripristina ordine predefinito',a:function(){prefs={order:[],hidden:[]};savePrefs();applyPrefs();render();closePanel();toast('Ordine ripristinato');}},{t:'Diagnostica',a:function(){closePanel();toggleDebug();}}];
+    plist.className='inner menu';drawRows();panel.classList.add('show');}
+  var pickAll=false,pick=[];
+  function openPicker(all){mode='pick';pickAll=!!all;psel=0;$('ptitle').textContent='Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → = sposta · Indietro = salva e chiudi';
+    pick=applyPrefs().filter(function(c){return pickAll||c.def||prefs.order.indexOf(c.id)>=0||prefs.hidden.indexOf(c.id)>=0;});
+    plist.className='inner';drawRows();panel.classList.add('show');}
+  function isVisible(c){var h=prefs.hidden.indexOf(c.id)>=0;var inOrder=prefs.order.indexOf(c.id)>=0;return inOrder?!h:(c.def&&!h);}
+  function drawRows(){plist.innerHTML='';var rows=mode==='menu'?prows:pick;
+    rows.forEach(function(r,i){var d=document.createElement('div');d.className='item'+(i===psel?' sel':'');
+      if(mode==='menu'){d.textContent=r.t;}else{var on=isVisible(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.sys?' (sistema)':'');d.querySelector('.id').textContent='';}
+      plist.appendChild(d);});
+    var rowH=mode==='menu'?4:3.4,vwpx=window.innerWidth/100,listH=plist.parentNode.clientHeight,shift=Math.max(0,(psel+1)*rowH*vwpx-listH+rowH*vwpx);plist.style.transform='translateY(-'+shift+'px)';}
+  function commitOrder(){prefs.order=pick.map(function(c){return c.id});prefs.hidden=pick.filter(function(c){return !isVisibleRaw(c)}).map(function(c){return c.id});savePrefs();applyPrefs();render();}
+  var vis={};function isVisibleRaw(c){return vis[c.id]!==undefined?vis[c.id]:isVisible(c);}
+  function closePanel(){if(mode==='pick'){commitOrder();}panel.classList.remove('show');mode=null;vis={};}
+  function panelKey(k){var rows=mode==='menu'?prows:pick;
+    if(k===40){psel=(psel+1)%rows.length;drawRows();}else if(k===38){psel=(psel-1+rows.length)%rows.length;drawRows();}
+    else if(k===13){if(mode==='menu')rows[psel].a();else{var c=pick[psel];vis[c.id]=!isVisibleRaw(c);prefs.hidden=prefs.hidden.filter(function(x){return x!==c.id});if(!vis[c.id])prefs.hidden.push(c.id);if(prefs.order.indexOf(c.id)<0)prefs.order=pick.map(function(x){return x.id});drawRows();}}
+    else if((k===37||k===39)&&mode==='pick'){var j=k===37?psel-1:psel+1;if(j<0||j>=pick.length)return;var tmp=pick[psel];pick[psel]=pick[j];pick[j]=tmp;psel=j;drawRows();}
+    else if(k===10009||k===27||k===8){closePanel();}}
   function toggleDebug(){var d=$('debug');if(d.classList.contains('show')){d.classList.remove('show');return;}
-    var lines=['MILANO HOME · diagnostica  (giallo per chiudere)','servizio: '+JSON.stringify(dbg.svc||null)+'  tizen: '+onTV+'  moduli: '+modules.map(function(m){return m.name}).join(', ')];
-    allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+a.name+'  ·  '+a.id+'  ·  '+(a.iconPath||'-'));});
+    var lines=['MILANO HOME · diagnostica  (Indietro per chiudere)','servizio: '+JSON.stringify(dbg.svc||null)+'  tizen: '+onTV+'  moduli: '+modules.map(function(m){return m.name}).join(', ')];
+    allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+a.name+'  ·  '+a.id);});
     d.textContent=lines.join('\n');d.classList.add('show');}
 
   /* ---------- telecomando ---------- */
   document.addEventListener('keydown',function(e){var k=e.keyCode;
+    if($('debug').classList.contains('show')){if(k===10009||k===27||k===8||k===13){$('debug').classList.remove('show');e.preventDefault();}return;}
+    if(mode){panelKey(k);e.preventDefault();return;}
     if(k===39){focus(cur+1);e.preventDefault();}else if(k===37){focus(cur-1);e.preventDefault();}
     else if(k===13){launch();e.preventDefault();}
-    else if(k===406||k===121){toggleDebug();e.preventDefault();}
+    else if(k===38){openMenu();e.preventDefault();}
     else if(k===10009||k===27){e.preventDefault();if(history.length>1)history.back();else if(onTV)tizen.application.getCurrentApplication().exit();}
   });
   window.addEventListener('resize',function(){focus(cur)});
