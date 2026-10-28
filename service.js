@@ -59,7 +59,8 @@
   var server = http.createServer(function (req, res) {
     var url = req.url || '/', q = qs(url), path = url.split('?')[0];
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }); return res.end(); }
-    if (path === '/ping') return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: '1.2.0' });
+    if (path === '/shutdown') { json(res, 200, { bye: true }); setTimeout(function () { try { server.close(); } catch (e) {} }, 50); return; }
+    if (path === '/ping') return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: '1.3.0' });
     if (path === '/apps') return listApps(function (err, apps) { if (err) return json(res, 500, { error: err }); json(res, 200, { apps: apps }); });
     if (path === '/launch') {
       if (!hasTizen()) return json(res, 500, { error: 'no tizen' });
@@ -82,6 +83,14 @@
     }
     json(res, 404, { error: 'not found' });
   });
-  server.on('error', function (e) { console.log('MilanoHome service error: ' + e.message); });
-  server.listen(PORT, '127.0.0.1', function () { console.log('MilanoHome service on ' + PORT); });
+  var retried = false;
+  server.on('error', function (e) {
+    console.log('MilanoHome service error: ' + e.message);
+    if (e.code === 'EADDRINUSE' && !retried) { retried = true;
+      // una versione precedente del servizio occupa la porta: le chiedo di chiudersi e riprovo
+      http.get({ host: '127.0.0.1', port: PORT, path: '/shutdown' }, function () { setTimeout(function () { server.listen(PORT, '127.0.0.1'); }, 800); })
+        .on('error', function () { setTimeout(function () { server.listen(PORT, '127.0.0.1'); }, 800); });
+    }
+  });
+  server.listen(PORT, '127.0.0.1', function () { console.log('MilanoHome service ' + '1.3.0' + ' on ' + PORT); });
 })();

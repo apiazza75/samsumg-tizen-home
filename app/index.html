@@ -44,7 +44,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 .day svg{width:2.2vw;height:2.2vw;margin:.3vw 0}
 .day .hi{font-size:1.15vw;font-weight:600}
 .day .lo{font-size:.9vw;color:var(--fg-dim)}
-.status{font-size:.75vw;color:var(--fg-dim);margin-top:.5vw;letter-spacing:.04em;opacity:.8}
+.greet{font-size:1.25vw;font-weight:500;color:var(--fg-dim);margin-top:.6vw;letter-spacing:-.01em}
 .debug{position:fixed;top:4vh;left:5vw;right:5vw;bottom:4vh;z-index:30;display:none;padding:1.5vw;border-radius:1.5vw;background:rgba(5,7,14,.92);border:1px solid var(--glass-edge);font-size:1vw;line-height:1.5;overflow:hidden;white-space:pre-wrap;font-family:monospace}
 .debug.show{display:block}
 .src{font-size:.62vw;color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase;margin-top:.4vw}
@@ -75,7 +75,8 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   background:var(--glass-strong);border:1px solid var(--glass-edge);font-weight:600;font-size:1.3vw;transition:opacity .25s,transform .25s;white-space:nowrap;z-index:20}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .credit{position:fixed;left:5vw;bottom:1vh;font-size:.68vw;color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase;opacity:.7}
-.hint{position:fixed;right:5vw;bottom:1vh;font-size:.68vw;color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.hint{position:fixed;right:5vw;bottom:1vh;font-size:.68vw;color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase;opacity:.7;transition:opacity 1s}
+.hint.fade{opacity:0}
 
 .panel{position:fixed;top:0;left:0;right:0;bottom:0;z-index:30;display:none;background:rgba(5,7,14,.78)}
 .panel.show{display:block}
@@ -104,7 +105,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   <div class="top">
     <div class="clock" id="clock">--:--</div>
     <div class="date" id="date"></div>
-    <div class="status" id="status"></div>
+    <div class="greet" id="greet"></div>
     <div class="card weather" id="weather"><div class="row"><div class="now"><div class="d"><b>Meteo</b>caricamento…</div></div></div></div>
   </div>
   <div class="bottom">
@@ -116,7 +117,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 <div class="debug" id="debug"></div>
 <div class="panel" id="panel"><div class="sheet"><h2 id="ptitle"></h2><p id="pdesc"></p><div class="list"><div class="inner" id="plist"></div></div></div></div>
 <div class="credit" id="credit"></div>
-<div class="hint">↑ Menu · Indietro = TizenBrew · Home = Samsung</div>
+<div class="hint" id="hint">↑ Menu · Indietro = TizenBrew · Home = Samsung</div>
 
 <script>
 (function(){
@@ -125,12 +126,14 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   var toastEl=$('toast'),tt;
   function toast(m,ms){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},ms||1800);}
 
-  /* ---------- orologio ---------- */
+  /* ---------- orologio (allineato al minuto) ---------- */
   var months=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
   var days=['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'],dShort=['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+  function greeting(h){return h<5?'Buonanotte':h<12?'Buongiorno':h<18?'Buon pomeriggio':'Buonasera';}
   function tick(){var d=new Date();$('clock').textContent=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
-    $('date').textContent=days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()];}
-  tick();setInterval(tick,15000);
+    $('date').textContent=days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()];$('greet').textContent=greeting(d.getHours());
+    setTimeout(tick,60000-(d.getSeconds()*1000+d.getMilliseconds())+50);}
+  tick();
 
   /* ---------- sfondi ---------- */
   var WALLS=[['wall1.jpg','Duomo e Castello dall\'alto · Gianluca, Pexels'],['wall2.jpg','Castello Sforzesco · Mikhail Nilov, Pexels'],
@@ -163,23 +166,26 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   loadWeather();setInterval(loadWeather,3600000);
 
   /* ---------- app ---------- */
+  var VERSION='1.3.0';
   var PREFERRED=['netflix','prime video','disney+','dazn','spotify','raiplay','mediaset infinity','now','sky go','apple tv','plex','paramount+','twitch','internet','samsung tv plus'];
   var HIDE=['smart hub','gallery','universal guide','e-manual','ambient','samsungtv','samsung health','bixby','multi view','camera','privacy','pc on tv','workspace','remote access','tv plus free','art mode','samsung promotion'];
   var SELF='samsung-tizen-home';
   var MODULE_LABEL={'tizentube':'YouTube <span>TizenTube · senza pubblicità</span>','jellyfin':'Jellyfin <span>film e serie dal PC</span>','moonlight':'Moonlight <span>giochi in streaming dal PC</span>'};
-  var HDMI=[1,2,3,4].map(function(n){return {kind:'hdmi',id:'hdmi'+n,n:n,name:'HDMI '+n,label:'HDMI '+n+' <span>cambia sorgente</span>'}});
-  var items=[],tiles=[],cur=0,ws=null,modules=[],allApps=[],catalog=[];
+  var HDMI_NAMES=['HDMI','Decoder','Console','PlayStation','Xbox','PC','Apple TV','Fire TV','Lettore Blu-ray','Soundbar'];
+  var items=[],tiles=[],cur=0,ws=null,modules=[],allApps=[],catalog=[],lastApps=[],lastMods=[];
   var appsEl=$('apps'),label=$('label');
   var SVC='http://127.0.0.1:8095',svcOk=false,dbg={};
 
-  /* preferenze: ordine e visibilità, salvate sulla TV */
-  var prefs={order:[],hidden:[]};
-  try{var pp=localStorage.getItem('mh_prefs');if(pp)prefs=JSON.parse(pp);}catch(e){}
+  /* preferenze (ordine, nascoste, nomi HDMI, ultima app) e cache del catalogo, salvate sulla TV */
+  var prefs={order:[],hidden:[],hdmi:{},last:null};
+  try{var pp=localStorage.getItem('mh_prefs');if(pp){var o=JSON.parse(pp);for(var k in o)prefs[k]=o[k];}}catch(e){}
   function savePrefs(){try{localStorage.setItem('mh_prefs',JSON.stringify(prefs))}catch(e){}}
+  function hdmiName(n){return prefs.hdmi[n]||'HDMI '+n;}
 
   function fetchJson(u,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej(new Error('timeout'))},ms||3000);
     fetch(u).then(function(r){return r.json()}).then(function(j){clearTimeout(t);res(j)}).catch(function(e){clearTimeout(t);rej(e)});});}
-  function waitService(tries){return fetchJson(SVC+'/ping',1500).then(function(j){svcOk=true;dbg.svc=j;return true;}).catch(function(){
+  function waitService(tries){return fetchJson(SVC+'/ping',1500).then(function(j){svcOk=true;dbg.svc=j;
+      if(j.v&&j.v!==VERSION)toast('Servizio versione '+j.v+' (launcher '+VERSION+'): riavvia TizenBrew per aggiornarlo',6000);return true;}).catch(function(){
     if(tries<=0)return false;return new Promise(function(r){setTimeout(function(){r(waitService(tries-1))},700)});});}
   function loadModules(){return new Promise(function(res){if(!onTV&&location.protocol==='file:')return res([]);
     try{ws=new WebSocket('ws://127.0.0.1:8081');var done=false;
@@ -191,25 +197,31 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     if(ok)return fetchJson(SVC+'/apps',6000).then(function(j){if(j.error){dbg.appsErr=j.error;return []}return j.apps||[]});
     return new Promise(function(res){if(!onTV||!tizen.application.getAppsInfo)return res([]);
       try{tizen.application.getAppsInfo(function(list){res(list||[])},function(e){dbg.appsErr=e&&e.message;res([])});}catch(e){dbg.appsErr=e.message;res([]);}});});}
-  function iconUrl(a){if(!a.iconPath)return null;return svcOk?SVC+'/icon?path='+encodeURIComponent(a.iconPath):'file://'+a.iconPath;}
+  function iconUrl(a){if(!a.iconPath)return null;return SVC+'/icon?path='+encodeURIComponent(a.iconPath);}
   function launchApp(id,name){if(svcOk){fetchJson(SVC+'/launch?id='+encodeURIComponent(id),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile')});return;}
     try{tizen.application.launch(id,function(){},function(e){toast('Non riesco ad aprire '+name+': '+(e&&e.message||''),3000)});}catch(e){toast('Errore: '+e.message,3000);}}
-  function switchHdmi(n){if(!svcOk){toast('Servizio non disponibile');return;}toast('Passo a HDMI '+n+'…',4000);
-    fetchJson(SVC+'/key?key=KEY_HDMI'+n,35000).then(function(j){if(j.error)toast('HDMI: '+j.error,5000)}).catch(function(){toast('HDMI: nessuna risposta',4000)});}
+  function sendKey(key,okMsg){if(!svcOk){toast('Servizio non disponibile');return;}
+    fetchJson(SVC+'/key?key='+key,35000).then(function(j){if(j.error)toast(j.error,5000);else if(okMsg)toast(okMsg);}).catch(function(){toast('Nessuna risposta dalla TV',4000)});}
+  var offArmed=0;
+  function powerOff(){var now=Date.now();if(now-offArmed>3000){offArmed=now;toast('Premi di nuovo Invio per spegnere la TV',3000);return;}offArmed=0;toast('Spengo…');sendKey('KEY_POWER');}
 
   function mkTile(it){var t=document.createElement('div');t.className='tile';
-    var img=document.createElement('img');img.alt='';var gl=document.createElement('div');gl.className='glyph';gl.textContent=it.kind==='hdmi'?it.n:(it.name||'?').charAt(0).toUpperCase();
+    var img=document.createElement('img');img.alt='';var gl=document.createElement('div');gl.className='glyph';gl.textContent=it.kind==='hdmi'?it.n:it.kind==='off'?'⏻':(it.name||'?').charAt(0).toUpperCase();
     var wm=document.createElement('div');wm.className='wm';wm.textContent=it.name;t.appendChild(img);t.appendChild(gl);t.appendChild(wm);
     if(it.icon){img.onload=function(){t.classList.add('has-icon');if(img.naturalWidth<=img.naturalHeight*1.05)t.classList.add('contain');};img.onerror=function(){t.classList.remove('has-icon')};img.src=it.icon;}
     t.addEventListener('click',function(){focus(tiles.indexOf(t));launch();});return t;}
-  function render(){appsEl.innerHTML='';tiles=[];items.forEach(function(it){var t=mkTile(it);appsEl.appendChild(t);tiles.push(t);});if(cur>=tiles.length)cur=0;focus(cur);}
+  function render(){appsEl.innerHTML='';tiles=[];items.forEach(function(it){var t=mkTile(it);appsEl.appendChild(t);tiles.push(t);});
+    var li=prefs.last?items.findIndex(function(x){return x.id===prefs.last}):-1;if(li>=0)cur=li;if(cur>=tiles.length)cur=0;focus(cur);}
   function focus(i){if(!tiles.length)return;cur=(i+tiles.length)%tiles.length;tiles.forEach(function(t,k){t.classList.toggle('is-focus',k===cur)});
     label.innerHTML=items[cur].label||items[cur].name;
     var vw=appsEl.parentNode.clientWidth,t=tiles[cur],x=t.offsetLeft,w=t.offsetWidth,total=appsEl.scrollWidth,shift=0;
     if(total>vw)shift=Math.min(Math.max(0,x+w/2-vw/2),total-vw);appsEl.style.transform='translateX('+(-shift)+'px)';}
   function launch(){var it=items[cur],t=tiles[cur];if(!it)return;t.classList.add('is-pressed');setTimeout(function(){t.classList.remove('is-pressed')},180);
+    if(it.kind!=='off'&&it.kind!=='home'){prefs.last=it.id;savePrefs();}
     if(!onTV&&!svcOk){toast('Apro '+it.name+' (anteprima)');return;}
-    try{if(it.kind==='app')launchApp(it.id,it.name);else if(it.kind==='module')launchModule(it.mod);else if(it.kind==='hdmi')switchHdmi(it.n);
+    try{if(it.kind==='app')launchApp(it.id,it.name);else if(it.kind==='module')launchModule(it.mod);
+      else if(it.kind==='hdmi'){toast('Passo a '+it.name+'…',4000);sendKey('KEY_HDMI'+it.n);}
+      else if(it.kind==='off')powerOff();
       else if(it.kind==='home'){tizen.application.getCurrentApplication().exit();}}catch(e){toast('Errore: '+e.message);}}
   function launchModule(m){if(!ws||ws.readyState!==1){toast('Servizio TizenBrew non raggiungibile');return;}
     try{(m.keys||[]).forEach(function(k){try{tizen.tvinputdevice.registerKey(k)}catch(e){}});}catch(e){}
@@ -225,8 +237,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
       var store=/^\d{8,}/.test(a.id)||/^[A-Za-z0-9]{10}\./.test(a.id);
       var hid=r<0||a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0});
       cat.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a),def:!hid,rank:r>=0?10+r:(store?100:900),sys:generic||!store});});
-    HDMI.forEach(function(h,i){cat.push({kind:'hdmi',id:h.id,n:h.n,name:h.name,label:h.label,def:i<2,rank:60+i});});
-    cat.push({kind:'home',id:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>',def:true,rank:999});
+    [1,2,3,4].forEach(function(n,i){cat.push({kind:'hdmi',id:'hdmi'+n,n:n,name:hdmiName(n),label:hdmiName(n)+' <span>'+(prefs.hdmi[n]?'HDMI '+n:'cambia sorgente')+'</span>',def:i<2,rank:60+i});});
+    cat.push({kind:'home',id:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>',def:true,rank:998});
+    cat.push({kind:'off',id:'off',name:'Spegni',label:'Spegni la TV <span>Invio due volte</span>',def:true,rank:999});
     return cat;}
   function applyPrefs(){var byId={};catalog.forEach(function(c){byId[c.id]=c});var out=[];
     prefs.order.forEach(function(id){if(byId[id]){out.push(byId[id]);delete byId[id];}});
@@ -234,45 +247,59 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     items=out.filter(function(c){var h=prefs.hidden.indexOf(c.id)>=0;var inOrder=prefs.order.indexOf(c.id)>=0;return inOrder?!h:(c.def&&!h);});
     if(!items.length)items=out.filter(function(c){return c.def});
     return out;}
+  function rebuild(mods,apps){lastMods=mods;lastApps=apps;allApps=apps;catalog=buildCatalog(mods,apps);applyPrefs();render();}
 
+  /* 1) rendering immediato dalla cache, 2) aggiornamento dai dati freschi */
+  var cached=null;try{cached=JSON.parse(localStorage.getItem('mh_cache')||'null');}catch(e){}
+  if(cached&&cached.apps&&cached.apps.length){rebuild(cached.mods||[],cached.apps);}
   Promise.all([loadModules(),loadApps()]).then(function(r){
-    var mods=r[0],apps=r[1];allApps=apps;catalog=buildCatalog(mods,apps);
+    var mods=r[0],apps=r[1];
     var demo=(!onTV&&!svcOk&&apps.length===0&&mods.length===0);
-    if(demo){catalog=[{name:'YouTube',label:'YouTube <span>TizenTube</span>'},{name:'Netflix'},{name:'Prime Video'},{name:'Disney+'},{name:'DAZN'},{name:'Jellyfin'},{name:'Moonlight'},{name:'HDMI 1',kind:'hdmi',n:1},{name:'Home Samsung'}].map(function(c,i){c.kind=c.kind||'app';c.id='demo'+i;c.def=true;c.rank=i;return c;});}
-    applyPrefs();render();
-    $('status').textContent=(demo?'anteprima · ':'')+'servizio '+(svcOk?'ok':'assente')+' · app '+apps.length+' · moduli '+mods.length+(dbg.appsErr?' · errore: '+dbg.appsErr:'');
+    if(demo){catalog=[{name:'YouTube',label:'YouTube <span>TizenTube</span>'},{name:'Netflix'},{name:'Prime Video'},{name:'Disney+'},{name:'DAZN'},{name:'Jellyfin'},{name:'Moonlight'},{name:'HDMI 1',kind:'hdmi',n:1},{name:'Home Samsung'},{name:'Spegni',kind:'off'}].map(function(c,i){c.kind=c.kind||'app';c.id='demo'+i;c.def=true;c.rank=i;return c;});applyPrefs();render();return;}
+    if(apps.length||mods.length){rebuild(mods,apps);try{localStorage.setItem('mh_cache',JSON.stringify({mods:mods.map(function(m){return {fullName:m.fullName,name:m.name,appName:m.appName,appPath:m.appPath,keys:m.keys,packageType:m.packageType,moduleType:m.moduleType,serviceFile:m.serviceFile,mainFile:m.mainFile,tizenAppId:m.tizenAppId,evaluateScriptOnDocumentStart:m.evaluateScriptOnDocumentStart,version:m.version}}),apps:apps.map(function(a){return {id:a.id,name:a.name,iconPath:a.iconPath,show:a.show}})}));}catch(e){}}
+    else if(!cached){label.textContent='Nessuna app trovata · premi ↑ e apri Diagnostica';}
+    dbg.loaded=true;
   });
 
   /* ---------- menu (freccia su) ---------- */
   var panel=$('panel'),plist=$('plist'),mode=null,psel=0,prows=[];
-  function openMenu(){mode='menu';psel=0;$('ptitle').textContent='Milano Home';$('pdesc').textContent='Invio per scegliere · Indietro per chiudere';
-    prows=[{t:'Scegli e ordina le app',a:openPicker},{t:'Mostra tutte le app di sistema',a:function(){openPicker(true)}},{t:'Ripristina ordine predefinito',a:function(){prefs={order:[],hidden:[]};savePrefs();applyPrefs();render();closePanel();toast('Ordine ripristinato');}},{t:'Diagnostica',a:function(){closePanel();toggleDebug();}}];
+  function openMenu(){mode='menu';psel=0;$('ptitle').textContent='Milano Home '+VERSION;$('pdesc').textContent='Invio per scegliere · Indietro per chiudere';
+    prows=[{t:'Scegli e ordina le app',a:function(){openPicker(false)}},{t:'Nomi degli ingressi HDMI',a:openHdmi},{t:'Mostra tutte le app di sistema',a:function(){openPicker(true)}},
+      {t:'Ripristina ordine predefinito',a:function(){prefs.order=[];prefs.hidden=[];savePrefs();applyPrefs();render();closePanel();toast('Ordine ripristinato');}},{t:'Diagnostica',a:function(){closePanel();toggleDebug();}}];
     plist.className='inner menu';drawRows();panel.classList.add('show');}
   var pickAll=false,pick=[];
-  function openPicker(all){mode='pick';pickAll=!!all;psel=0;$('ptitle').textContent='Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → = sposta · Indietro = salva e chiudi';
+  function openPicker(all){mode='pick';pickAll=!!all;psel=0;$('ptitle').textContent=all?'Tutte le app di sistema':'Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → = sposta · Indietro = salva e chiudi';
     pick=applyPrefs().filter(function(c){return pickAll||!c.sys||prefs.order.indexOf(c.id)>=0;});
     plist.className='inner';drawRows();panel.classList.add('show');}
+  function openHdmi(){mode='hdmi';psel=0;$('ptitle').textContent='Nomi degli ingressi HDMI';$('pdesc').textContent='← → cambia nome · Indietro = salva e chiudi';
+    plist.className='inner menu';drawRows();panel.classList.add('show');}
   function isVisible(c){var h=prefs.hidden.indexOf(c.id)>=0;var inOrder=prefs.order.indexOf(c.id)>=0;return inOrder?!h:(c.def&&!h);}
-  function drawRows(){plist.innerHTML='';var rows=mode==='menu'?prows:pick;
+  function drawRows(){plist.innerHTML='';var rows=mode==='menu'?prows:mode==='hdmi'?[1,2,3,4]:pick;
     rows.forEach(function(r,i){var d=document.createElement('div');d.className='item'+(i===psel?' sel':'');
-      if(mode==='menu'){d.textContent=r.t;}else{var on=isVisible(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.sys?' (sistema)':'');d.querySelector('.id').textContent=(pickAll&&r.kind==='app')?r.id:'';}
+      if(mode==='menu'){d.textContent=r.t;}
+      else if(mode==='hdmi'){d.innerHTML='<span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent='HDMI '+r+'  →  '+hdmiName(r);d.querySelector('.id').textContent='← →';}
+      else{var on=isVisibleRaw(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.sys?' (sistema)':'');d.querySelector('.id').textContent=(pickAll&&r.kind==='app')?r.id:'';}
       plist.appendChild(d);});
-    var rowH=mode==='menu'?4:3.4,vwpx=window.innerWidth/100,listH=plist.parentNode.clientHeight,shift=Math.max(0,(psel+1)*rowH*vwpx-listH+rowH*vwpx);plist.style.transform='translateY(-'+shift+'px)';}
-  function commitOrder(){prefs.order=pick.map(function(c){return c.id});prefs.hidden=pick.filter(function(c){return !isVisibleRaw(c)}).map(function(c){return c.id});savePrefs();applyPrefs();render();}
+    var rowH=mode==='pick'?3.4:4,vwpx=window.innerWidth/100,listH=plist.parentNode.clientHeight,shift=Math.max(0,(psel+1)*rowH*vwpx-listH+rowH*vwpx);plist.style.transform='translateY(-'+shift+'px)';}
   var vis={};function isVisibleRaw(c){return vis[c.id]!==undefined?vis[c.id]:isVisible(c);}
-  function closePanel(){if(mode==='pick'){commitOrder();}panel.classList.remove('show');mode=null;vis={};}
-  function panelKey(k){var rows=mode==='menu'?prows:pick;
+  function commitOrder(){prefs.order=pick.map(function(c){return c.id});prefs.hidden=pick.filter(function(c){return !isVisibleRaw(c)}).map(function(c){return c.id});savePrefs();applyPrefs();render();}
+  function closePanel(){if(mode==='pick')commitOrder();if(mode==='hdmi'){savePrefs();rebuild(lastMods,lastApps);}panel.classList.remove('show');mode=null;vis={};}
+  function panelKey(k){var rows=mode==='menu'?prows:mode==='hdmi'?[1,2,3,4]:pick;
     if(k===40){psel=(psel+1)%rows.length;drawRows();}else if(k===38){psel=(psel-1+rows.length)%rows.length;drawRows();}
-    else if(k===13){if(mode==='menu')rows[psel].a();else{var c=pick[psel];vis[c.id]=!isVisibleRaw(c);prefs.hidden=prefs.hidden.filter(function(x){return x!==c.id});if(!vis[c.id])prefs.hidden.push(c.id);if(prefs.order.indexOf(c.id)<0)prefs.order=pick.map(function(x){return x.id});drawRows();}}
+    else if(k===13){if(mode==='menu')rows[psel].a();else if(mode==='pick'){var c=pick[psel];vis[c.id]=!isVisibleRaw(c);drawRows();}}
     else if((k===37||k===39)&&mode==='pick'){var j=k===37?psel-1:psel+1;if(j<0||j>=pick.length)return;var tmp=pick[psel];pick[psel]=pick[j];pick[j]=tmp;psel=j;drawRows();}
+    else if((k===37||k===39)&&mode==='hdmi'){var n=rows[psel],idx=HDMI_NAMES.indexOf(prefs.hdmi[n]||'HDMI');idx=(idx+(k===39?1:-1)+HDMI_NAMES.length)%HDMI_NAMES.length;
+      if(HDMI_NAMES[idx]==='HDMI')delete prefs.hdmi[n];else prefs.hdmi[n]=HDMI_NAMES[idx];drawRows();}
     else if(k===10009||k===27||k===8){closePanel();}}
   function toggleDebug(){var d=$('debug');if(d.classList.contains('show')){d.classList.remove('show');return;}
-    var lines=['MILANO HOME · diagnostica  (Indietro per chiudere)','servizio: '+JSON.stringify(dbg.svc||null)+'  tizen: '+onTV+'  moduli: '+modules.map(function(m){return m.name}).join(', ')];
+    var lines=['MILANO HOME '+VERSION+' · diagnostica  (Indietro per chiudere)','servizio: '+(svcOk?'ok '+JSON.stringify(dbg.svc):'assente')+'  ·  tizen nella pagina: '+onTV+'  ·  app: '+allApps.length+'  ·  moduli: '+modules.map(function(m){return m.name}).join(', ')+(dbg.appsErr?'  ·  errore: '+dbg.appsErr:'')];
     allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+a.name+'  ·  '+a.id);});
     d.textContent=lines.join('\n');d.classList.add('show');}
 
   /* ---------- telecomando ---------- */
+  var hintT=setTimeout(function(){$('hint').classList.add('fade')},12000);
   document.addEventListener('keydown',function(e){var k=e.keyCode;
+    $('hint').classList.remove('fade');clearTimeout(hintT);hintT=setTimeout(function(){$('hint').classList.add('fade')},12000);
     if($('debug').classList.contains('show')){if(k===10009||k===27||k===8||k===13){$('debug').classList.remove('show');e.preventDefault();}return;}
     if(mode){panelKey(k);e.preventDefault();return;}
     if(k===39){focus(cur+1);e.preventDefault();}else if(k===37){focus(cur-1);e.preventDefault();}
