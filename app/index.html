@@ -221,8 +221,10 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
       var lab=null;Object.keys(MODULE_LABEL).forEach(function(k){if(key.indexOf(k)>=0)lab=MODULE_LABEL[k];});
       cat.push({kind:'module',id:'mod:'+m.fullName,mod:m,name:m.appName,label:lab,icon:null,def:true,rank:key.indexOf('tizentube')>=0?0:50});});
     apps.forEach(function(a){if(!a||!a.name||!a.id)return;var n=a.name.toLowerCase();var r=PREFERRED.findIndex(function(p){return n===p||n.indexOf(p)===0});
-      var hid=a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0})||a.id.indexOf('org.tizen')===0;
-      cat.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a),def:!hid,rank:r>=0?10+r:(hid?900:100),sys:a.show===false});});
+      var generic=/^(app|apps|service|widget|)$/i.test(a.name.trim())||a.id.indexOf('org.tizen')===0||n.indexOf('samsung')>=0&&r<0;
+      var store=/^\d{8,}/.test(a.id)||/^[A-Za-z0-9]{10}\./.test(a.id);
+      var hid=r<0||a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0});
+      cat.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a),def:!hid,rank:r>=0?10+r:(store?100:900),sys:generic||!store});});
     HDMI.forEach(function(h,i){cat.push({kind:'hdmi',id:h.id,n:h.n,name:h.name,label:h.label,def:i<2,rank:60+i});});
     cat.push({kind:'home',id:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>',def:true,rank:999});
     return cat;}
@@ -248,12 +250,12 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     plist.className='inner menu';drawRows();panel.classList.add('show');}
   var pickAll=false,pick=[];
   function openPicker(all){mode='pick';pickAll=!!all;psel=0;$('ptitle').textContent='Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → = sposta · Indietro = salva e chiudi';
-    pick=applyPrefs().filter(function(c){return pickAll||c.def||prefs.order.indexOf(c.id)>=0||prefs.hidden.indexOf(c.id)>=0;});
+    pick=applyPrefs().filter(function(c){return pickAll||!c.sys||prefs.order.indexOf(c.id)>=0;});
     plist.className='inner';drawRows();panel.classList.add('show');}
   function isVisible(c){var h=prefs.hidden.indexOf(c.id)>=0;var inOrder=prefs.order.indexOf(c.id)>=0;return inOrder?!h:(c.def&&!h);}
   function drawRows(){plist.innerHTML='';var rows=mode==='menu'?prows:pick;
     rows.forEach(function(r,i){var d=document.createElement('div');d.className='item'+(i===psel?' sel':'');
-      if(mode==='menu'){d.textContent=r.t;}else{var on=isVisible(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.sys?' (sistema)':'');d.querySelector('.id').textContent='';}
+      if(mode==='menu'){d.textContent=r.t;}else{var on=isVisible(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.sys?' (sistema)':'');d.querySelector('.id').textContent=(pickAll&&r.kind==='app')?r.id:'';}
       plist.appendChild(d);});
     var rowH=mode==='menu'?4:3.4,vwpx=window.innerWidth/100,listH=plist.parentNode.clientHeight,shift=Math.max(0,(psel+1)*rowH*vwpx-listH+rowH*vwpx);plist.style.transform='translateY(-'+shift+'px)';}
   function commitOrder(){prefs.order=pick.map(function(c){return c.id});prefs.hidden=pick.filter(function(c){return !isVisibleRaw(c)}).map(function(c){return c.id});savePrefs();applyPrefs();render();}
