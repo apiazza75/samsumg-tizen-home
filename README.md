@@ -3,11 +3,24 @@
 Launcher pulito per Samsung Smart TV (Tizen), in stile liquid glass, con orologio, meteo a 3 giorni (Open-Meteo) e fotografie di Milano dall'alto.
 Funziona come **modulo di TizenBrew**: nessun certificato, nessuna firma.
 
-## Installazione
+## Installazione (una volta sola)
 
 1. Sulla TV apri **TizenBrew → Module Manager → Add module** e inserisci `gh/apiazza75/samsung-tizen-home`.
 2. Nelle impostazioni di TizenBrew imposta Milano Home come modulo ad **avvio automatico**.
 3. Sulla TV attiva *Impostazioni → Generale → Funzioni Smart → Avvio automatico ultima app*.
+
+Se sulla TV c'è ancora un modulo installato con un nome diverso (per esempio `gh/apiazza75/samsung-tizen-home@<commit>`), rimuovilo prima: Module Manager → seleziona il modulo → conferma la rimozione.
+
+## Aggiornamenti: automatici
+
+jsDelivr tiene in cache fino a 7 giorni i file di un modulo senza versione, e la sua API di purge è solo su invito: per questo finora ogni versione andava reinstallata con un nome diverso. Dalla 1.5.0 il modulo si aggiorna da solo:
+
+- `app/index.html` e `service.js` sono due **bootstrap stabili** che a ogni avvio chiedono a GitHub l'ultimo commit di `main` e caricano `app/launcher.html` e `service-core.js` da `cdn.jsdelivr.net/gh/apiazza75/samsung-tizen-home@<sha>/…`: un URL con lo SHA del commit è immutabile, quindi non c'è mai cache vecchia.
+- Se GitHub non risponde si usa l'ultimo commit noto (salvato sulla TV) e, in mancanza, il ramo `main` (cache jsDelivr 12 ore).
+- Per aggiornare basta quindi **fare il merge su `main`** e riaprire Milano Home dalla tile **TizenBrew** (o riavviare TizenBrew, così si rinnova anche il servizio). La voce *Diagnostica* del menu mostra il commit in uso.
+- Per provare un ramo o un commit specifico: `…/app/index.html?ref=<sha-o-ramo>` (i rami con `/` nel nome non sono indirizzabili su jsDelivr).
+
+I due bootstrap cambiano di rado; se un giorno dovessero cambiare, TizenBrew li rilegge entro 7 giorni oppure subito con rimozione e nuova aggiunta del modulo.
 
 ## Telecomando
 
