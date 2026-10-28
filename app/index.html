@@ -166,7 +166,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   loadWeather();setInterval(loadWeather,3600000);
 
   /* ---------- app ---------- */
-  var VERSION='1.3.0';
+  var VERSION='1.3.1';
   var PREFERRED=['netflix','prime video','disney+','dazn','spotify','raiplay','mediaset infinity','now','sky go','apple tv','plex','paramount+','twitch','internet','samsung tv plus'];
   var HIDE=['smart hub','gallery','universal guide','e-manual','ambient','samsungtv','samsung health','bixby','multi view','camera','privacy','pc on tv','workspace','remote access','tv plus free','art mode','samsung promotion'];
   var SELF='samsung-tizen-home';
@@ -232,11 +232,17 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     mods.forEach(function(m){if(!m||!m.appName||(m.name||'').toLowerCase().indexOf(SELF)>=0)return;var key=(m.name||'').toLowerCase().replace(/^@[^/]+\//,'');
       var lab=null;Object.keys(MODULE_LABEL).forEach(function(k){if(key.indexOf(k)>=0)lab=MODULE_LABEL[k];});
       cat.push({kind:'module',id:'mod:'+m.fullName,mod:m,name:m.appName,label:lab,icon:null,def:true,rank:key.indexOf('tizentube')>=0?0:50});});
-    apps.forEach(function(a){if(!a||!a.name||!a.id)return;var n=a.name.toLowerCase();var r=PREFERRED.findIndex(function(p){return n===p||n.indexOf(p)===0});
-      var generic=/^(app|apps|service|widget|)$/i.test(a.name.trim())||a.id.indexOf('org.tizen')===0||n.indexOf('samsung')>=0&&r<0;
+    // una sola voce per nome: Samsung registra più "app" omonime (app vera + componenti). Preferisco icona leggibile, ID store, voce visibile.
+    var best={};
+    apps.forEach(function(a){if(!a||!a.name||!a.id)return;var key=a.name.toLowerCase().trim();
+      var score=(a.iconOk===true?8:(a.iconOk===undefined&&a.iconPath?4:0))+(/^\d{8,}/.test(a.id)?2:0)+(a.show!==false?1:0);
+      if(!best[key]||score>best[key].score)best[key]={a:a,score:score};});
+    apps.forEach(function(a){if(!a||!a.name||!a.id)return;var n=a.name.toLowerCase().trim();var r=PREFERRED.findIndex(function(p){return n===p||n.indexOf(p)===0});
+      var dup=best[n].a!==a;
+      var generic=r<0&&(/^(app|apps|service|widget|)$/i.test(a.name.trim())||a.id.indexOf('org.tizen')===0||n.indexOf('samsung')>=0);
       var store=/^\d{8,}/.test(a.id)||/^[A-Za-z0-9]{10}\./.test(a.id);
-      var hid=r<0||a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0});
-      cat.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a),def:!hid,rank:r>=0?10+r:(store?100:900),sys:generic||!store});});
+      var hid=dup||r<0||a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0});
+      cat.push({kind:'app',id:a.id,name:a.name,icon:(a.iconOk===false?null:iconUrl(a)),def:!hid,rank:r>=0?10+r:(store?100:900),sys:dup||generic||!store,dup:dup});});
     [1,2,3,4].forEach(function(n,i){cat.push({kind:'hdmi',id:'hdmi'+n,n:n,name:hdmiName(n),label:hdmiName(n)+' <span>'+(prefs.hdmi[n]?'HDMI '+n:'cambia sorgente')+'</span>',def:i<2,rank:60+i});});
     cat.push({kind:'home',id:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>',def:true,rank:998});
     cat.push({kind:'off',id:'off',name:'Spegni',label:'Spegni la TV <span>Invio due volte</span>',def:true,rank:999});
@@ -256,7 +262,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     var mods=r[0],apps=r[1];
     var demo=(!onTV&&!svcOk&&apps.length===0&&mods.length===0);
     if(demo){catalog=[{name:'YouTube',label:'YouTube <span>TizenTube</span>'},{name:'Netflix'},{name:'Prime Video'},{name:'Disney+'},{name:'DAZN'},{name:'Jellyfin'},{name:'Moonlight'},{name:'HDMI 1',kind:'hdmi',n:1},{name:'Home Samsung'},{name:'Spegni',kind:'off'}].map(function(c,i){c.kind=c.kind||'app';c.id='demo'+i;c.def=true;c.rank=i;return c;});applyPrefs();render();return;}
-    if(apps.length||mods.length){rebuild(mods,apps);try{localStorage.setItem('mh_cache',JSON.stringify({mods:mods.map(function(m){return {fullName:m.fullName,name:m.name,appName:m.appName,appPath:m.appPath,keys:m.keys,packageType:m.packageType,moduleType:m.moduleType,serviceFile:m.serviceFile,mainFile:m.mainFile,tizenAppId:m.tizenAppId,evaluateScriptOnDocumentStart:m.evaluateScriptOnDocumentStart,version:m.version}}),apps:apps.map(function(a){return {id:a.id,name:a.name,iconPath:a.iconPath,show:a.show}})}));}catch(e){}}
+    if(apps.length||mods.length){rebuild(mods,apps);try{localStorage.setItem('mh_cache',JSON.stringify({mods:mods.map(function(m){return {fullName:m.fullName,name:m.name,appName:m.appName,appPath:m.appPath,keys:m.keys,packageType:m.packageType,moduleType:m.moduleType,serviceFile:m.serviceFile,mainFile:m.mainFile,tizenAppId:m.tizenAppId,evaluateScriptOnDocumentStart:m.evaluateScriptOnDocumentStart,version:m.version}}),apps:apps.map(function(a){return {id:a.id,name:a.name,iconPath:a.iconPath,show:a.show,iconOk:a.iconOk}})}));}catch(e){}}
     else if(!cached){label.textContent='Nessuna app trovata · premi ↑ e apri Diagnostica';}
     dbg.loaded=true;
   });
@@ -269,7 +275,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     plist.className='inner menu';drawRows();panel.classList.add('show');}
   var pickAll=false,pick=[];
   function openPicker(all){mode='pick';pickAll=!!all;psel=0;$('ptitle').textContent=all?'Tutte le app di sistema':'Scegli e ordina le app';$('pdesc').textContent='Invio = mostra/nascondi · ← → = sposta · Indietro = salva e chiudi';
-    pick=applyPrefs().filter(function(c){return pickAll||!c.sys||prefs.order.indexOf(c.id)>=0;});
+    pick=applyPrefs().filter(function(c){return pickAll||!c.sys||isVisible(c)||prefs.order.indexOf(c.id)>=0;});
     plist.className='inner';drawRows();panel.classList.add('show');}
   function openHdmi(){mode='hdmi';psel=0;$('ptitle').textContent='Nomi degli ingressi HDMI';$('pdesc').textContent='← → cambia nome · Indietro = salva e chiudi';
     plist.className='inner menu';drawRows();panel.classList.add('show');}
@@ -278,11 +284,11 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     rows.forEach(function(r,i){var d=document.createElement('div');d.className='item'+(i===psel?' sel':'');
       if(mode==='menu'){d.textContent=r.t;}
       else if(mode==='hdmi'){d.innerHTML='<span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent='HDMI '+r+'  →  '+hdmiName(r);d.querySelector('.id').textContent='← →';}
-      else{var on=isVisibleRaw(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.sys?' (sistema)':'');d.querySelector('.id').textContent=(pickAll&&r.kind==='app')?r.id:'';}
+      else{var on=isVisibleRaw(r);d.className+=(on?' on':' hid');d.innerHTML='<span class="ck">'+(on?'✓':'')+'</span><span class="nm"></span><span class="id"></span>';d.querySelector('.nm').textContent=r.name+(r.dup?' (duplicato)':(r.sys&&pickAll)?' (sistema)':'');d.querySelector('.id').textContent=(pickAll&&r.kind==='app')?r.id:'';}
       plist.appendChild(d);});
     var rowH=mode==='pick'?3.4:4,vwpx=window.innerWidth/100,listH=plist.parentNode.clientHeight,shift=Math.max(0,(psel+1)*rowH*vwpx-listH+rowH*vwpx);plist.style.transform='translateY(-'+shift+'px)';}
   var vis={};function isVisibleRaw(c){return vis[c.id]!==undefined?vis[c.id]:isVisible(c);}
-  function commitOrder(){prefs.order=pick.map(function(c){return c.id});prefs.hidden=pick.filter(function(c){return !isVisibleRaw(c)}).map(function(c){return c.id});savePrefs();applyPrefs();render();}
+  function commitOrder(){var hidden=pick.filter(function(c){return !isVisibleRaw(c)}).map(function(c){return c.id});var order=pick.map(function(c){return c.id});prefs.hidden=hidden;prefs.order=order;savePrefs();applyPrefs();render();}
   function closePanel(){if(mode==='pick')commitOrder();if(mode==='hdmi'){savePrefs();rebuild(lastMods,lastApps);}panel.classList.remove('show');mode=null;vis={};}
   function panelKey(k){var rows=mode==='menu'?prows:mode==='hdmi'?[1,2,3,4]:pick;
     if(k===40){psel=(psel+1)%rows.length;drawRows();}else if(k===38){psel=(psel-1+rows.length)%rows.length;drawRows();}
@@ -293,7 +299,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     else if(k===10009||k===27||k===8){closePanel();}}
   function toggleDebug(){var d=$('debug');if(d.classList.contains('show')){d.classList.remove('show');return;}
     var lines=['MILANO HOME '+VERSION+' · diagnostica  (Indietro per chiudere)','servizio: '+(svcOk?'ok '+JSON.stringify(dbg.svc):'assente')+'  ·  tizen nella pagina: '+onTV+'  ·  app: '+allApps.length+'  ·  moduli: '+modules.map(function(m){return m.name}).join(', ')+(dbg.appsErr?'  ·  errore: '+dbg.appsErr:'')];
-    allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+a.name+'  ·  '+a.id);});
+    allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+(a.iconOk===true?'[icona] ':a.iconOk===false?'[icona assente] ':'')+a.name+'  ·  '+a.id);});
     d.textContent=lines.join('\n');d.classList.add('show');}
 
   /* ---------- telecomando ---------- */

@@ -22,7 +22,8 @@
       tizen.application.getAppsInfo(function (list) {
         var out = [];
         for (var i = 0; i < list.length; i++) { var a = list[i];
-          out.push({ id: a.id, name: a.name, iconPath: a.iconPath || '', show: a.show !== false, packageId: a.packageId || '', categories: a.categories || [] }); }
+          var ip = a.iconPath || '', ok = false; try { ok = !!ip && fs.statSync(ip).isFile(); } catch (e) { ok = false; }
+          out.push({ id: a.id, name: a.name, iconPath: ip, iconOk: ok, show: a.show !== false, packageId: a.packageId || '' }); }
         cb(null, out);
       }, function (e) { cb(e && e.message ? e.message : 'getAppsInfo error', null); });
     } catch (e) { cb(e.message, null); }
@@ -60,7 +61,7 @@
     var url = req.url || '/', q = qs(url), path = url.split('?')[0];
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }); return res.end(); }
     if (path === '/shutdown') { json(res, 200, { bye: true }); setTimeout(function () { try { server.close(); } catch (e) {} }, 50); return; }
-    if (path === '/ping') return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: '1.3.0' });
+    if (path === '/ping') return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: '1.3.1' });
     if (path === '/apps') return listApps(function (err, apps) { if (err) return json(res, 500, { error: err }); json(res, 200, { apps: apps }); });
     if (path === '/launch') {
       if (!hasTizen()) return json(res, 500, { error: 'no tizen' });
@@ -92,5 +93,5 @@
         .on('error', function () { setTimeout(function () { server.listen(PORT, '127.0.0.1'); }, 800); });
     }
   });
-  server.listen(PORT, '127.0.0.1', function () { console.log('MilanoHome service ' + '1.3.0' + ' on ' + PORT); });
+  server.listen(PORT, '127.0.0.1', function () { console.log('MilanoHome service ' + '1.3.1' + ' on ' + PORT); });
 })();
