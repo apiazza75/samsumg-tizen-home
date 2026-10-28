@@ -44,6 +44,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 .day svg{width:2.2vw;height:2.2vw;margin:.3vw 0}
 .day .hi{font-size:1.15vw;font-weight:600}
 .day .lo{font-size:.9vw;color:var(--fg-dim)}
+.status{font-size:.75vw;color:var(--fg-dim);margin-top:.5vw;letter-spacing:.04em;opacity:.8}
+.debug{position:fixed;top:4vh;left:5vw;right:5vw;bottom:4vh;z-index:30;display:none;padding:1.5vw;border-radius:1.5vw;background:rgba(5,7,14,.92);border:1px solid var(--glass-edge);font-size:1vw;line-height:1.5;overflow:hidden;white-space:pre-wrap;font-family:monospace}
+.debug.show{display:block}
 .src{font-size:.62vw;color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase;margin-top:.4vw}
 
 .bottom{position:absolute;left:5vw;right:5vw;bottom:5vh}
@@ -84,6 +87,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   <div class="top">
     <div class="clock" id="clock">--:--</div>
     <div class="date" id="date"></div>
+    <div class="status" id="status"></div>
     <div class="card weather" id="weather"><div class="row"><div class="now"><div class="d"><b>Meteo</b>caricamento…</div></div></div></div>
   </div>
   <div class="bottom">
@@ -92,6 +96,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="debug" id="debug"></div>
 <div class="credit" id="credit"></div>
 <div class="hint">Indietro = TizenBrew · Home = Samsung</div>
 
@@ -160,9 +165,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     var vw=appsEl.parentNode.clientWidth,t=tiles[cur],x=t.offsetLeft,w=t.offsetWidth,total=appsEl.scrollWidth,shift=0;
     if(total>vw)shift=Math.min(Math.max(0,x+w/2-vw/2),total-vw);appsEl.style.transform='translateX('+(-shift)+'px)';}
   function launch(){var it=items[cur],t=tiles[cur];t.classList.add('is-pressed');setTimeout(function(){t.classList.remove('is-pressed')},180);
-    if(!onTV){toast('Apro '+it.name+' (anteprima)');return;}
+    if(!onTV&&!svcOk){toast('Apro '+it.name+' (anteprima)');return;}
     try{
-      if(it.kind==='app'){tizen.application.launch(it.id,function(){},function(e){toast('Non riesco ad aprire '+it.name)});}
+      if(it.kind==='app'){launchApp(it.id,it.name);}
       else if(it.kind==='module'){launchModule(it.mod);}
       else if(it.kind==='home'){tizen.application.getCurrentApplication().exit();}
     }catch(e){toast('Errore: '+e.message);}
@@ -171,39 +176,54 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     try{(m.keys||[]).forEach(function(k){try{tizen.tvinputdevice.registerKey(k)}catch(e){}});}catch(e){}
     ws.send(JSON.stringify({type:5,payload:m}));setTimeout(function(){location.href=m.appPath;},150);}
 
-  // 1) moduli TizenBrew (TizenTube, Jellyfin, Moonlight…) via servizio locale
-  function loadModules(){return new Promise(function(res){if(!onTV)return res([]);
+  // 1) moduli TizenBrew (TizenTube, Jellyfin, Moonlight…) via servizio TizenBrew (ws 8081)
+  function loadModules(){return new Promise(function(res){if(!onTV&&location.protocol==='file:')return res([]);
     try{ws=new WebSocket('ws://127.0.0.1:8081');var done=false;
       ws.onopen=function(){ws.send(JSON.stringify({type:4,payload:false}));};
       ws.onmessage=function(ev){try{var d=JSON.parse(ev.data);if(d.type===4&&!done){done=true;modules=d.payload||[];res(modules);}}catch(e){}};
       ws.onerror=function(){if(!done){done=true;res([]);}};setTimeout(function(){if(!done){done=true;res([]);}},4000);
     }catch(e){res([]);}});}
-  // 2) app Samsung installate
-  function loadApps(){return new Promise(function(res){if(!onTV||!tizen.application.getAppsInfo)return res([]);
-    try{tizen.application.getAppsInfo(function(list){res(list||[])},function(){res([])});}catch(e){res([]);}});}
+  // 2) app Samsung installate: prima dal nostro servizio (service.js, porta 8095), poi dall'API diretta
+  var SVC='http://127.0.0.1:8095',svcOk=false,dbg={};
+  function fetchJson(u,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej(new Error('timeout'))},ms||3000);
+    fetch(u).then(function(r){return r.json()}).then(function(j){clearTimeout(t);res(j)}).catch(function(e){clearTimeout(t);rej(e)});});}
+  function waitService(tries){return fetchJson(SVC+'/ping',1500).then(function(j){svcOk=true;dbg.svc=j;return true;}).catch(function(){
+    if(tries<=0)return false;return new Promise(function(r){setTimeout(function(){r(waitService(tries-1))},700)});});}
+  function loadApps(){return waitService(8).then(function(ok){
+    if(ok)return fetchJson(SVC+'/apps',6000).then(function(j){if(j.error){dbg.appsErr=j.error;return []}return j.apps||[]});
+    return new Promise(function(res){if(!onTV||!tizen.application.getAppsInfo)return res([]);
+      try{tizen.application.getAppsInfo(function(list){res(list||[])},function(e){dbg.appsErr=e&&e.message;res([])});}catch(e){dbg.appsErr=e.message;res([]);}});});}
+  function iconUrl(a){if(!a.iconPath)return null;return svcOk?SVC+'/icon?path='+encodeURIComponent(a.iconPath):'file://'+a.iconPath;}
+  var allApps=[];
+  function launchApp(id,name){if(svcOk){fetchJson(SVC+'/launch?id='+encodeURIComponent(id),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile')});return;}
+    try{tizen.application.launch(id,function(){},function(e){toast('Non riesco ad aprire '+name+': '+(e&&e.message||''),3000)});}catch(e){toast('Errore: '+e.message,3000);}}
 
   Promise.all([loadModules(),loadApps()]).then(function(r){
-    var mods=r[0],apps=r[1],out=[];
-    // app Samsung: prima quelle preferite nell'ordine dato, poi le altre visibili
+    var mods=r[0],apps=r[1],out=[];allApps=apps;
     var byName={};apps.forEach(function(a){if(!a||!a.name)return;var n=a.name.toLowerCase();if(a.show===false)return;byName[n]=a;});
-    PREFERRED.forEach(function(p){Object.keys(byName).forEach(function(n){if(n===p||n.indexOf(p)===0){var a=byName[n];delete byName[n];out.push({kind:'app',id:a.id,name:a.name,icon:a.iconPath?'file://'+a.iconPath:null});}});});
-    // moduli TizenBrew (escluso questo launcher)
+    PREFERRED.forEach(function(p){Object.keys(byName).forEach(function(n){if(n===p||n.indexOf(p)===0){var a=byName[n];delete byName[n];out.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a)});}});});
     mods.forEach(function(m){if(!m||!m.appName||(m.name||'').toLowerCase().indexOf(SELF)>=0)return;var key=(m.name||'').toLowerCase().replace(/^@[^/]+\//,'');
       var lab=null;Object.keys(MODULE_LABEL).forEach(function(k){if(key.indexOf(k)>=0)lab=MODULE_LABEL[k];});
       var it={kind:'module',mod:m,name:m.appName,label:lab,icon:null};
       if(key.indexOf('tizentube')>=0)out.splice(0,0,it);else out.push(it);});
     Object.keys(byName).forEach(function(n){var a=byName[n];var hid=HIDE.some(function(h){return n.indexOf(h)>=0});if(hid)return;if(a.id&&a.id.indexOf('org.tizen')===0)return;
-      out.push({kind:'app',id:a.id,name:a.name,icon:a.iconPath?'file://'+a.iconPath:null});});
+      out.push({kind:'app',id:a.id,name:a.name,icon:iconUrl(a)});});
     out.push({kind:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>'});
-    if(!onTV)out=[{kind:'app',name:'YouTube',label:'YouTube <span>TizenTube</span>'},{kind:'app',name:'Netflix'},{kind:'app',name:'Prime Video'},{kind:'app',name:'Disney+'},{kind:'app',name:'DAZN'},{kind:'app',name:'Jellyfin'},{kind:'app',name:'Moonlight'},{kind:'home',name:'Home Samsung'}];
+    var demo=(!onTV&&!svcOk&&apps.length===0&&mods.length===0);
+    if(demo)out=[{kind:'app',name:'YouTube',label:'YouTube <span>TizenTube</span>'},{kind:'app',name:'Netflix'},{kind:'app',name:'Prime Video'},{kind:'app',name:'Disney+'},{kind:'app',name:'DAZN'},{kind:'app',name:'Jellyfin'},{kind:'app',name:'Moonlight'},{kind:'home',name:'Home Samsung'}];
     items=out;render();
-    if(onTV&&apps.length===0)toast('Non riesco a leggere le app installate',4000);
+    $('status').textContent=(demo?'anteprima · ':'')+'servizio '+(svcOk?'ok':'assente')+' · tizen '+(onTV?'ok':'assente')+' · app '+apps.length+' · moduli '+mods.length+(dbg.appsErr?' · errore: '+dbg.appsErr:'');
   });
+  function toggleDebug(){var d=$('debug');if(d.classList.contains('show')){d.classList.remove('show');return;}
+    var lines=['MILANO HOME · diagnostica  (giallo per chiudere)','servizio: '+JSON.stringify(dbg.svc||null)+'  tizen: '+onTV+'  moduli: '+modules.map(function(m){return m.name}).join(', ')];
+    allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+a.name+'  ·  '+a.id+'  ·  '+(a.iconPath||'-'));});
+    d.textContent=lines.join('\n');d.classList.add('show');}
 
   /* ---------- telecomando ---------- */
   document.addEventListener('keydown',function(e){var k=e.keyCode;
     if(k===39){focus(cur+1);e.preventDefault();}else if(k===37){focus(cur-1);e.preventDefault();}
     else if(k===13){launch();e.preventDefault();}
+    else if(k===406||k===121){toggleDebug();e.preventDefault();}
     else if(k===10009||k===27){e.preventDefault();if(history.length>1)history.back();else if(onTV)tizen.application.getCurrentApplication().exit();}
   });
   window.addEventListener('resize',function(){focus(cur)});
