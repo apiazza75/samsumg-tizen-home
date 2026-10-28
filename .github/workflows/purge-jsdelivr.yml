@@ -1,0 +1,45 @@
+# A ogni merge su main svuota la cache di jsDelivr per tutti i file del repository, sia agli URL senza versione
+# (quelli che TizenBrew legge: package.json, app/index.html, service.js) sia a quelli @main (usati come ripiego dai bootstrap).
+# Così una modifica ai bootstrap arriva alla TV al riavvio successivo di TizenBrew, invece che dopo 12 ore.
+# Il meccanismo principale di aggiornamento resta quello dei bootstrap (SHA di main -> URL immutabile): la purge è un acceleratore.
+name: Purge jsDelivr cache
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Purge di tutti i file (senza versione e @main)
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          body=$(git ls-files | jq -R -n --arg repo "$repo" \
+            '{path: [inputs | select(length > 0) | ("/gh/" + $repo + "/" + .), ("/gh/" + $repo + "@main/" + .)]}')
+          echo "Path da purgare: $(echo "$body" | jq '.path | length')"
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$body" https://purge.jsdelivr.net/)
+          cat resp.json; echo
+          if [ "$code" != "200" ] && [ "$code" != "202" ]; then echo "::error::purge rifiutata (HTTP $code)"; exit 1; fi
+          id=$(jq -r '.id' resp.json)
+          status=$(jq -r '.status' resp.json)
+          for i in $(seq 1 30); do
+            [ "$status" = "finished" ] && break
+            sleep 2
+            curl -sS -o status.json "https://purge.jsdelivr.net/status/$id"
+            status=$(jq -r '.status' status.json)
+          done
+          [ -f status.json ] && cat status.json | jq -c '.paths | to_entries[] | {path: .key, throttled: .value.throttled, providers: .value.providers}'
+          if [ "$status" != "finished" ]; then echo "::error::purge non completata (stato: $status)"; exit 1; fi
+          if [ -f status.json ] && jq -e '[.paths[] | .throttled] | any' status.json >/dev/null; then
+            echo "::warning::jsDelivr ha limitato alcuni path (throttled): la cache di quei file scade da sola entro 12 ore"
+          fi
+          echo "Purge completata."

@@ -15,14 +15,20 @@ Se TizenBrew non arriva più alla sua home (per esempio perché l'avvio automati
 
 ## Aggiornamenti: automatici
 
-jsDelivr tiene in cache fino a 7 giorni i file di un modulo senza versione, e la sua API di purge è solo su invito: per questo finora ogni versione andava reinstallata con un nome diverso. Dalla 1.5.0 il modulo si aggiorna da solo:
+TizenBrew legge i file di un modulo da jsDelivr, che tiene in cache fino a 12 ore gli URL senza versione. Milano Home aggira il problema su due livelli, così **basta fare il merge su `main`** e il nome del modulo non cambia mai:
 
-- `app/index.html` e `service.js` sono due **bootstrap stabili** che a ogni avvio chiedono a GitHub l'ultimo commit di `main` e caricano `app/launcher.html` e `service-core.js` da `cdn.jsdelivr.net/gh/apiazza75/samsung-tizen-home@<sha>/…`: un URL con lo SHA del commit è immutabile, quindi non c'è mai cache vecchia.
-- Se GitHub non risponde si usa l'ultimo commit noto (salvato sulla TV) e, in mancanza, il ramo `main` (cache jsDelivr 12 ore).
-- Per aggiornare basta quindi **fare il merge su `main`** e riaprire Milano Home dalla tile **TizenBrew** (o riavviare TizenBrew, così si rinnova anche il servizio). La voce *Diagnostica* del menu mostra il commit in uso.
-- Per provare un ramo o un commit specifico: `…/app/index.html?ref=<sha-o-ramo>` (i rami con `/` nel nome non sono indirizzabili su jsDelivr).
+- `app/index.html` e `service.js` sono due **bootstrap stabili**: a ogni avvio chiedono a GitHub l'ultimo commit di `main` e caricano `app/launcher.html` e `service-core.js` da `cdn.jsdelivr.net/gh/apiazza75/samsung-tizen-home@<sha>/…`, URL immutabili e quindi mai in cache vecchia. Se GitHub non risponde si usa l'ultimo commit noto (salvato sulla TV) e, in mancanza, il ramo `main`.
+- A ogni push su `main` la GitHub Action **Purge jsDelivr cache** (`.github/workflows/purge-jsdelivr.yml`) svuota la cache di jsDelivr per tutti i file del repository, sia senza versione sia `@main`: anche una modifica ai bootstrap arriva alla TV al riavvio successivo di TizenBrew.
 
-I due bootstrap cambiano di rado; se un giorno dovessero cambiare, TizenBrew li rilegge entro 7 giorni oppure subito con rimozione e nuova aggiunta del modulo.
+In pratica: merge su `main` → sulla TV tile **TizenBrew** → riapri Milano Home (il launcher è già nuovo). Per rinnovare anche il servizio riavvia TizenBrew. La voce *Diagnostica* del menu ↑ mostra il commit in uso, lo stato del servizio e delle icone.
+
+Per provare un ramo o un commit specifico: `…/app/index.html?ref=<sha-o-ramo>` (i rami con `/` nel nome non sono indirizzabili su jsDelivr).
+
+## Icone
+
+Le icone delle app sono quelle dello **Smart Hub**, le stesse della home Samsung: il servizio le chiede alla TV sul canale telecomando (`ed.installedApp.get` dà l'elenco con il percorso di ogni icona, `ed.apps.icon` restituisce l'immagine quando il file non è leggibile direttamente) e le tiene in cache sulla TV (`/home/owner/share/milanohome-icons`). Ogni app Tizen viene abbinata alla voce Smart Hub per id, per pacchetto o per nome; se non c'è corrispondenza si usa il file icona dell'app e, in mancanza, l'iniziale su sfondo colorato. In Diagnostica ogni app riporta `[hub <id>]` quando l'icona viene dallo Smart Hub.
+
+Il canale telecomando usa la porta 8001; se la TV la rifiuta passa alla 8002 (TLS) e conserva il token rilasciato dalla TV, così la richiesta "Consenti Milano Home" compare una volta sola.
 
 ## Telecomando
 
@@ -30,7 +36,7 @@ I due bootstrap cambiano di rado; se un giorno dovessero cambiare, TizenBrew li 
 
 Due tile di servizio evitano di uscire dal launcher: **TizenBrew** riporta alla pagina dei moduli (prima fa rileggere l'elenco, così eventuali aggiornamenti dei moduli vengono visti subito; da lì basta riaprire Milano Home) e **Impostazioni TV** apre il menu Samsung sopra il launcher (aggiornamento software, rete, ecc.). Entrambe si possono nascondere dal menu ↑.
 
-Il tile **Spegni** spegne la TV con Invio premuto due volte. Gli HDMI e lo spegnimento usano l'API telecomando Samsung: al primo uso la TV chiede di consentire "Milano Home".
+Il tile **Spegni** spegne la TV con Invio premuto due volte. HDMI, Home, Spegni e Impostazioni TV usano l'API telecomando Samsung: al primo uso la TV chiede di consentire "Milano Home".
 
 Il launcher ricorda l'ultima app aperta, tiene in cache l'elenco delle app per partire subito, e mostra un saluto in base all'ora.
 
