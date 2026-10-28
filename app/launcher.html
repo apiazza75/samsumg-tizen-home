@@ -132,7 +132,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
-  var VERSION='1.5.1';
+  var VERSION='1.6.0';
   var isTV=location.protocol!=='file:'&&location.hostname==='127.0.0.1'; // caricato da TizenBrew
   var toastEl=$('toast'),tt;
   function toast(m,ms){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},ms||1800);}
@@ -208,8 +208,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   function waitService(tries){return ping().then(function(ok){if(ok||tries<=0)return ok;return new Promise(function(r){setTimeout(function(){r(waitService(tries-1))},700)});});}
   function ensureService(){return svcOk?Promise.resolve(true):ping();}
   function loadApps(){return waitService(8).then(function(ok){if(!ok)return null;
-    return fetchJson(SVC+'/apps',8000).then(function(j){if(j.error){dbg.appsErr=j.error;return null}return j.apps||[]}).catch(function(e){dbg.appsErr=String(e);return null});});}
-  function iconUrl(a){if(!a.iconPath)return null;return SVC+'/icon?path='+encodeURIComponent(a.iconPath);}
+    return fetchJson(SVC+'/apps',12000).then(function(j){if(j.error){dbg.appsErr=j.error;return null}dbg.hub=j.hub;dbg.hubErr=j.hubError;return j.apps||[]}).catch(function(e){dbg.appsErr=String(e);return null});});}
+  /* icona: prima quella dello Smart Hub (la stessa della home Samsung, via servizio), poi il file icona dell'app Tizen */
+  function iconUrl(a){if(a.hub)return SVC+'/hubicon?id='+encodeURIComponent(a.hub);if(!a.iconPath)return null;return SVC+'/icon?path='+encodeURIComponent(a.iconPath);}
   function noService(){toast('Servizio non attivo: riapri Milano Home da TizenBrew',4000);}
   function launchApp(id,name){ensureService().then(function(ok){if(!ok)return noService();
     fetchJson(SVC+'/launch?id='+encodeURIComponent(id)+'&back='+(prefs.back===false?0:1),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile',3000)});});}
@@ -271,7 +272,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     withWs(function(ok){if(ok){try{ws.send(JSON.stringify({type:4,payload:true}));}catch(e){}}setTimeout(go,ok?300:0);});}
 
   /* --- catalogo completo -> preferenze -> elenco visibile --- */
-  function appIconByName(apps,names){var hit=null;apps.forEach(function(a){if(!a||!a.name)return;var n=a.name.toLowerCase().trim();if(names.indexOf(n)>=0&&a.iconOk===true&&!hit)hit=a;});return hit?iconUrl(hit):null;}
+  function appIconByName(apps,names){var hub=null,hit=null;apps.forEach(function(a){if(!a||!a.name)return;var n=a.name.toLowerCase().trim();if(names.indexOf(n)<0)return;if(a.hub&&!hub)hub=a;if(a.iconOk===true&&!hit)hit=a;});return hub?iconUrl(hub):hit?iconUrl(hit):null;}
   function buildCatalog(mods,apps){var cat=[];
     mods.forEach(function(m){if(!m||!m.appName||(m.name||'').toLowerCase().indexOf(SELF)>=0)return;var key=(m.name||'').toLowerCase().replace(/^@[^/]+\//,'');
       var lab=null;Object.keys(MODULE_LABEL).forEach(function(k){if(key.indexOf(k)>=0)lab=MODULE_LABEL[k];});
@@ -283,14 +284,14 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     // una sola voce per nome: Samsung registra più "app" omonime (app vera + componenti). Preferisco icona leggibile, ID store, voce visibile.
     var best={};
     apps.forEach(function(a){if(!a||!a.name||!a.id)return;var key=a.name.toLowerCase().trim();
-      var score=(a.iconOk===true?8:(a.iconOk===undefined&&a.iconPath?4:0))+(/^\d{8,}/.test(a.id)?2:0)+(a.show!==false?1:0);
+      var score=(a.hub?16:0)+(a.iconOk===true?8:(a.iconOk===undefined&&a.iconPath?4:0))+(/^\d{8,}/.test(a.id)?2:0)+(a.show!==false?1:0);
       if(!best[key]||score>best[key].score)best[key]={a:a,score:score};});
     apps.forEach(function(a){if(!a||!a.name||!a.id)return;var n=a.name.toLowerCase().trim();var r=PREFERRED.findIndex(function(p){return n===p||n.indexOf(p)===0});
       var dup=best[n].a!==a;
       var generic=r<0&&(/^(app|apps|service|widget|)$/i.test(a.name.trim())||a.id.indexOf('org.tizen')===0||n.indexOf('samsung')>=0);
       var store=/^\d{8,}/.test(a.id)||/^[A-Za-z0-9]{10}\./.test(a.id);
       var hid=dup||r<0||a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0});
-      cat.push({kind:'app',id:a.id,name:a.name,icon:(a.iconOk===false?null:iconUrl(a)),def:!hid,rank:r>=0?10+r:(store?100:900),sys:dup||generic||!store,dup:dup});});
+      cat.push({kind:'app',id:a.id,name:a.name,icon:(a.iconOk===false&&!a.hub?null:iconUrl(a)),def:!hid,rank:r>=0?10+r:(store?100:900),sys:dup||generic||!store,dup:dup});});
     [1,2,3,4].forEach(function(n,i){cat.push({kind:'hdmi',id:'hdmi'+n,n:n,name:hdmiName(n),label:hdmiLabel(n),def:i<2,rank:60+i});});
     cat.push({kind:'brew',id:'tizenbrew',name:'TizenBrew',label:'TizenBrew <span>moduli e aggiornamenti</span>',def:true,rank:996});
     cat.push({kind:'settings',id:'settings',name:'Impostazioni TV',label:'Impostazioni TV <span>menu Samsung</span>',def:true,rank:997});
@@ -315,7 +316,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     if(!modsOk)mods=lastMods;if(!appsOk)apps=lastApps;
     if(mods.length||apps.length)rebuild(mods,apps);
     else label.textContent='Nessuna app trovata · premi ↑ e apri Diagnostica';
-    if((modsOk||appsOk)&&apps.length){try{localStorage.setItem('mh_cache',JSON.stringify({mods:mods.map(function(m){return {fullName:m.fullName,name:m.name,appName:m.appName,appPath:m.appPath,keys:m.keys,packageType:m.packageType,moduleType:m.moduleType,serviceFile:m.serviceFile,mainFile:m.mainFile,tizenAppId:m.tizenAppId,evaluateScriptOnDocumentStart:m.evaluateScriptOnDocumentStart,version:m.version}}),apps:apps.map(function(a){return {id:a.id,name:a.name,iconPath:a.iconPath,show:a.show,iconOk:a.iconOk}})}));}catch(e){}}
+    if((modsOk||appsOk)&&apps.length){try{localStorage.setItem('mh_cache',JSON.stringify({mods:mods.map(function(m){return {fullName:m.fullName,name:m.name,appName:m.appName,appPath:m.appPath,keys:m.keys,packageType:m.packageType,moduleType:m.moduleType,serviceFile:m.serviceFile,mainFile:m.mainFile,tizenAppId:m.tizenAppId,evaluateScriptOnDocumentStart:m.evaluateScriptOnDocumentStart,version:m.version}}),apps:apps.map(function(a){return {id:a.id,name:a.name,iconPath:a.iconPath,show:a.show,iconOk:a.iconOk,hub:a.hub,hubName:a.hubName}})}));}catch(e){}}
   });
 
   /* ---------- menu (freccia su) ---------- */
@@ -357,8 +358,8 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     else if((k===37||k===39)&&mode==='hdmi'){var n=rows[psel],idx=HDMI_NAMES.indexOf(prefs.hdmi[n]||'HDMI');idx=(idx+(k===39?1:-1)+HDMI_NAMES.length)%HDMI_NAMES.length;
       if(HDMI_NAMES[idx]==='HDMI')delete prefs.hdmi[n];else prefs.hdmi[n]=HDMI_NAMES[idx];drawRows();}}
   function toggleDebug(){var d=$('debug');if(d.classList.contains('show')){d.classList.remove('show');return;}
-    var lines=['MILANO HOME '+VERSION+' · commit '+(window.MH_REF?String(window.MH_REF).slice(0,7):'locale')+' · diagnostica  (↑ ↓ scorri · Indietro chiude)','servizio: '+(svcOk?'ok '+JSON.stringify(dbg.svc):'assente')+'  ·  moduli: '+(dbg.modsOk?modules.map(function(m){return m.name}).join(', '):'non ricevuti')+'  ·  app: '+allApps.length+(dbg.appsErr?'  ·  errore: '+dbg.appsErr:'')+'  ·  in cache: '+(cached&&cached.apps?cached.apps.length:0)];
-    allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+(a.iconOk===true?'[icona] ':a.iconOk===false?'[icona assente] ':'')+a.name+'  ·  '+a.id);});
+    var lines=['MILANO HOME '+VERSION+' · commit '+(window.MH_REF?String(window.MH_REF).slice(0,7):'locale')+' · diagnostica  (↑ ↓ scorri · Indietro chiude)','servizio: '+(svcOk?'ok '+JSON.stringify(dbg.svc):'assente')+'  ·  moduli: '+(dbg.modsOk?modules.map(function(m){return m.name}).join(', '):'non ricevuti')+'  ·  app: '+allApps.length+(dbg.appsErr?'  ·  errore: '+dbg.appsErr:'')+'  ·  in cache: '+(cached&&cached.apps?cached.apps.length:0)+'  ·  Smart Hub: '+(dbg.hub!==undefined&&dbg.hub!==null?dbg.hub+' app, '+allApps.filter(function(a){return a.hub}).length+' abbinate':'non disponibile')+(dbg.hubErr?' ('+dbg.hubErr+')':'')];
+    allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+(a.hub?'[hub '+a.hub+'] ':'')+(a.iconOk===true?'[icona] ':a.iconOk===false?'[icona assente] ':'')+a.name+'  ·  '+a.id);});
     d.textContent=lines.join('\n');d.scrollTop=0;d.classList.add('show');}
 
   /* ---------- telecomando ---------- */
