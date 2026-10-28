@@ -4,7 +4,7 @@
    (al primo uso la TV chiede "Consenti"). Gli endpoint che agiscono sulla TV accettano solo richieste dalla pagina di TizenBrew. */
 (function () {
   'use strict';
-  var VERSION = '1.4.0';
+  var VERSION = '1.5.0';
   var http = require('http');
   var fs = require('fs');
   var crypto = require('crypto');

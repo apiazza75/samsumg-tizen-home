@@ -127,12 +127,12 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 <div class="debug" id="debug"></div>
 <div class="panel" id="panel"><div class="sheet"><h2 id="ptitle"></h2><p id="pdesc"></p><div class="list"><div class="inner" id="plist"></div></div></div></div>
 <div class="credit" id="credit"></div>
-<div class="hint" id="hint">↑ Menu · Indietro = TizenBrew · Home = Samsung</div>
+<div class="hint" id="hint">↑ Menu · Indietro o tile TizenBrew = moduli · Home = Samsung</div>
 
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
-  var VERSION='1.4.0';
+  var VERSION='1.5.0';
   var isTV=location.protocol!=='file:'&&location.hostname==='127.0.0.1'; // caricato da TizenBrew
   var toastEl=$('toast'),tt;
   function toast(m,ms){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},ms||1800);}
@@ -194,7 +194,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   try{var pp=localStorage.getItem('mh_prefs');if(pp){var o=JSON.parse(pp);for(var k in o)if(o[k]!==null&&o[k]!==undefined)prefs[k]=o[k];}}catch(e){}
   function savePrefs(){try{localStorage.setItem('mh_prefs',JSON.stringify(prefs))}catch(e){}}
   function hdmiName(n){return prefs.hdmi[n]||'HDMI '+n;}
-  var SYM={play:'<svg viewBox="0 0 64 64"><path d="M24 16v32l26-16z" fill="#fff"/></svg>',film:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4"><rect x="10" y="14" width="44" height="36" rx="4"/><path d="M10 26h44M10 38h44M22 14v36M42 14v36"/></svg>',game:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"><path d="M20 22h24a12 12 0 0 1 12 12l-2 10a6 6 0 0 1-10 3l-5-5H25l-5 5a6 6 0 0 1-10-3l-2-10a12 12 0 0 1 12-12z"/><path d="M22 30v8M18 34h8M42 31h.1M47 36h.1"/></svg>',hdmi:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"><path d="M10 24h44v12l-8 8H18l-8-8z"/><path d="M20 30h24" stroke-width="3"/></svg>',home:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"><path d="M12 30 32 14l20 16v22H38V38H26v14H12z"/></svg>',power:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"><path d="M32 12v20"/><path d="M20.5 20.5a16 16 0 1 0 23 0"/></svg>'};
+  var SYM={play:'<svg viewBox="0 0 64 64"><path d="M24 16v32l26-16z" fill="#fff"/></svg>',film:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4"><rect x="10" y="14" width="44" height="36" rx="4"/><path d="M10 26h44M10 38h44M22 14v36M42 14v36"/></svg>',game:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"><path d="M20 22h24a12 12 0 0 1 12 12l-2 10a6 6 0 0 1-10 3l-5-5H25l-5 5a6 6 0 0 1-10-3l-2-10a12 12 0 0 1 12-12z"/><path d="M22 30v8M18 34h8M42 31h.1M47 36h.1"/></svg>',hdmi:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"><path d="M10 24h44v12l-8 8H18l-8-8z"/><path d="M20 30h24" stroke-width="3"/></svg>',home:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"><path d="M12 30 32 14l20 16v22H38V38H26v14H12z"/></svg>',power:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"><path d="M32 12v20"/><path d="M20.5 20.5a16 16 0 1 0 23 0"/></svg>',brew:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 28h30v12a10 10 0 0 1-10 10H24a10 10 0 0 1-10-10z"/><path d="M44 32h4a6 6 0 0 1 0 12h-4"/><path d="M12 56h36" stroke-width="3.5"/><path d="M23 10c-2 3 2 5 0 9M31 10c-2 3 2 5 0 9" stroke-width="3" opacity=".9"/><path d="M38 14l1.6 3.4 3.4 1.6-3.4 1.6L38 24l-1.6-3.4L33 19l3.4-1.6z" fill="#fff" stroke="none"/></svg>',gear:'<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"><path d="M27.5 10h9l1.6 6.4 4.6 2.7 6.3-1.9 4.5 7.8-4.7 4.5v5.4l4.7 4.5-4.5 7.8-6.3-1.9-4.6 2.7L36.5 54h-9l-1.6-6.4-4.6-2.7-6.3 1.9-4.5-7.8 4.7-4.5v-5.4l-4.7-4.5 4.5-7.8 6.3 1.9 4.6-2.7z"/><circle cx="32" cy="32" r="7"/></svg>'};
   var HUES=[["#4f7cff","#1b2f73"],["#ff6b4a","#7a2415"],["#2fbf8f","#0f4f3a"],["#b26bff","#3d1f73"],["#ffb547","#7a4a0f"],["#3cc4e8","#0f4a5c"]];
   function hueFor(name){var h=0;for(var i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;return HUES[h%HUES.length];}
   function hdmiLabel(n){return esc(hdmiName(n))+' <span>'+(prefs.hdmi[n]?'HDMI '+n:'cambia sorgente')+'</span>';}
@@ -239,9 +239,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   /* --- riga delle app --- */
   function mkTile(it){var t=document.createElement('div');t.className='tile';
     var img=document.createElement('img');img.alt='';var gl=document.createElement('div');gl.className='glyph';
-    var sym=it.kind==='hdmi'?'hdmi':it.kind==='home'?'home':it.kind==='off'?'power':it.sym||null;
+    var sym=it.kind==='hdmi'?'hdmi':it.kind==='home'?'home':it.kind==='off'?'power':it.kind==='brew'?'brew':it.kind==='settings'?'gear':it.sym||null;
     if(sym){gl.className='glyph sym';gl.innerHTML=SYM[sym]+(it.kind==='hdmi'?'<b>'+it.n+'</b>':'');
-      var col=it.kind==='off'?['#ff5f57','#6b1d18']:it.kind==='home'?['#9aa7c7','#2c3550']:it.kind==='hdmi'?['#6b7aa3','#242c45']:hueFor(it.name||'');gl.style.background='linear-gradient(150deg,'+col[0]+','+col[1]+')';}
+      var col=it.kind==='off'?['#ff5f57','#6b1d18']:it.kind==='home'?['#9aa7c7','#2c3550']:it.kind==='hdmi'?['#6b7aa3','#242c45']:it.kind==='brew'?['#f0a860','#7a3d10']:it.kind==='settings'?['#7fd0c8','#174a4a']:hueFor(it.name||'');gl.style.background='linear-gradient(150deg,'+col[0]+','+col[1]+')';}
     else{gl.textContent=(it.name||'?').charAt(0).toUpperCase();var c2=hueFor(it.name||'');gl.style.background='linear-gradient(150deg,'+c2[0]+','+c2[1]+')';}
     var wm=document.createElement('div');wm.className='wm';wm.textContent=it.name;t.appendChild(img);t.appendChild(gl);t.appendChild(wm);
     if(it.icon){img.onload=function(){t.classList.add('has-icon');if(img.naturalWidth<=img.naturalHeight*1.05)t.classList.add('contain');};img.onerror=function(){t.classList.remove('has-icon')};img.src=it.icon;}
@@ -256,12 +256,19 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     var vw=appsEl.parentNode.clientWidth,t=tiles[cur],x=t.offsetLeft,w=t.offsetWidth,total=appsEl.scrollWidth,shift=0;
     if(total>vw)shift=Math.min(Math.max(0,x+w/2-vw/2),total-vw);appsEl.style.transform='translateX('+(-shift)+'px)';}
   function launch(){var it=items[cur],t=tiles[cur];if(!it)return;t.classList.add('is-pressed');setTimeout(function(){t.classList.remove('is-pressed')},180);
-    if(it.kind!=='off'&&it.kind!=='home'){prefs.last=it.id;savePrefs();}
+    if(it.kind!=='off'&&it.kind!=='home'&&it.kind!=='brew'&&it.kind!=='settings'){prefs.last=it.id;savePrefs();}
     if(!isTV||demoMode){toast('Apro '+it.name+' (anteprima)');return;}
     if(it.kind==='app')launchApp(it.id,it.name);else if(it.kind==='module')launchModule(it.mod);
     else if(it.kind==='hdmi'){toast('Passo a '+it.name+'…',4000);sendKey('KEY_HDMI'+it.n);}
     else if(it.kind==='off')powerOff();
-    else if(it.kind==='home')sendKey('KEY_HOME');}
+    else if(it.kind==='home')sendKey('KEY_HOME');
+    else if(it.kind==='brew')goTizenBrew();
+    else if(it.kind==='settings'){toast('Apro le impostazioni della TV…',3000);sendKey('KEY_MENU');}}
+  /* TizenBrew: la sua pagina è quella da cui è partito il launcher, quindi basta tornare indietro nella cronologia.
+     Prima chiedo al servizio di rileggere i moduli (GetModules con reload), così l'elenco che si trova è aggiornato. */
+  function goTizenBrew(){toast('Torno a TizenBrew…',2500);
+    var go=function(){if(history.length>1)history.back();else toast('Pagina di TizenBrew non in cronologia: premi Home e riapri TizenBrew',5000);};
+    withWs(function(ok){if(ok){try{ws.send(JSON.stringify({type:4,payload:true}));}catch(e){}}setTimeout(go,ok?300:0);});}
 
   /* --- catalogo completo -> preferenze -> elenco visibile --- */
   function appIconByName(apps,names){var hit=null;apps.forEach(function(a){if(!a||!a.name)return;var n=a.name.toLowerCase().trim();if(names.indexOf(n)>=0&&a.iconOk===true&&!hit)hit=a;});return hit?iconUrl(hit):null;}
@@ -285,6 +292,8 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
       var hid=dup||r<0||a.show===false||HIDE.some(function(h){return n.indexOf(h)>=0});
       cat.push({kind:'app',id:a.id,name:a.name,icon:(a.iconOk===false?null:iconUrl(a)),def:!hid,rank:r>=0?10+r:(store?100:900),sys:dup||generic||!store,dup:dup});});
     [1,2,3,4].forEach(function(n,i){cat.push({kind:'hdmi',id:'hdmi'+n,n:n,name:hdmiName(n),label:hdmiLabel(n),def:i<2,rank:60+i});});
+    cat.push({kind:'brew',id:'tizenbrew',name:'TizenBrew',label:'TizenBrew <span>moduli e aggiornamenti</span>',def:true,rank:996});
+    cat.push({kind:'settings',id:'settings',name:'Impostazioni TV',label:'Impostazioni TV <span>menu Samsung</span>',def:true,rank:997});
     cat.push({kind:'home',id:'home',name:'Home Samsung',label:'Home Samsung <span>esci dal launcher</span>',def:true,rank:998});
     cat.push({kind:'off',id:'off',name:'Spegni',label:'Spegni la TV <span>Invio due volte</span>',def:true,rank:999});
     return cat;}
@@ -294,7 +303,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     Object.keys(byId).map(function(k){return byId[k]}).sort(function(a,b){return a.rank-b.rank||a.name.localeCompare(b.name)}).forEach(function(c){out.push(c)});
     items=out.filter(isVisible);if(!items.length)items=out.filter(function(c){return c.def});return out;}
   function rebuild(mods,apps){lastMods=mods;lastApps=apps;allApps=apps;catalog=buildCatalog(mods,apps);applyPrefs();render();}
-  function buildDemo(){demoMode=true;catalog=[{name:'YouTube',label:'YouTube <span>TizenTube</span>'},{name:'Netflix'},{name:'Prime Video'},{name:'Disney+'},{name:'DAZN'},{name:'Jellyfin'},{name:'Moonlight'},{name:'HDMI 1',kind:'hdmi',n:1},{name:'Home Samsung'},{name:'Spegni',kind:'off'}].map(function(c,i){c.kind=c.kind||'app';c.id='demo'+i;c.def=true;c.rank=i;return c;});applyPrefs();render();}
+  function buildDemo(){demoMode=true;catalog=[{name:'YouTube',label:'YouTube <span>TizenTube</span>'},{name:'Netflix'},{name:'Prime Video'},{name:'Disney+'},{name:'DAZN'},{name:'Jellyfin'},{name:'Moonlight'},{name:'HDMI 1',kind:'hdmi',n:1},{name:'TizenBrew',kind:'brew'},{name:'Impostazioni TV',kind:'settings'},{name:'Home Samsung',kind:'home'},{name:'Spegni',kind:'off'}].map(function(c,i){c.kind=c.kind||'app';c.id='demo'+i;c.def=true;c.rank=i;return c;});applyPrefs();render();}
 
   /* 1) rendering immediato dalla cache, 2) aggiornamento dai dati freschi; ogni fonte che fallisce conserva l'ultimo dato buono */
   var cached=null;try{cached=JSON.parse(localStorage.getItem('mh_cache')||'null');}catch(e){}

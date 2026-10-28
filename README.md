@@ -13,6 +13,8 @@ Funziona come **modulo di TizenBrew**: nessun certificato, nessuna firma.
 
 ← → scegli l'app · Invio apri · **↑ menu** (scegli e ordina le app, nomi HDMI, app di sistema, diagnostica) · Indietro torna a TizenBrew · Home = home Samsung.
 
+Due tile di servizio evitano di uscire dal launcher: **TizenBrew** riporta alla pagina dei moduli (prima fa rileggere l'elenco, così eventuali aggiornamenti dei moduli vengono visti subito; da lì basta riaprire Milano Home) e **Impostazioni TV** apre il menu Samsung sopra il launcher (aggiornamento software, rete, ecc.). Entrambe si possono nascondere dal menu ↑.
+
 Il tile **Spegni** spegne la TV con Invio premuto due volte. Gli HDMI e lo spegnimento usano l'API telecomando Samsung: al primo uso la TV chiede di consentire "Milano Home".
 
 Il launcher ricorda l'ultima app aperta, tiene in cache l'elenco delle app per partire subito, e mostra un saluto in base all'ora.
