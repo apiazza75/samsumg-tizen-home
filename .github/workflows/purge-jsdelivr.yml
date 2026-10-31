@@ -44,31 +44,25 @@ jobs:
           fi
           echo "Purge completata."
 
-      - name: Verifica che jsDelivr serva i file nuovi (GitHub propaga il push in qualche minuto; se serve si ripete la purge)
+      - name: Verifica (solo informativa) di cosa serve jsDelivr agli URL senza versione
         shell: bash
         run: |
-          set -euo pipefail
+          # La purge svuota i bordi della CDN, ma jsDelivr può continuare per un po' a risolvere "main" a un commit precedente
+          # (osservato il 31/10/2026: per oltre 5 minuti dopo la purge serviva ancora i file vecchi, anche di commit diversi tra
+          # loro). Quella risoluzione scade da sola entro 12 ore e ripetere la purge serve solo a farsi limitare (throttled).
+          # Non è un problema per Milano Home: i bootstrap vecchi caricano comunque launcher e servizio dall'ultimo commit
+          # (URL @sha, immutabili e subito disponibili). Qui si riporta soltanto lo stato, senza fallire.
+          set -uo pipefail
           repo="${GITHUB_REPOSITORY}"
-          files="package.json app/index.html service.js"
-          okRuns=0
-          for i in $(seq 1 12); do
-            stale=""
-            for f in $files; do
-              want=$(sha256sum "$f" | cut -c1-16)
-              for u in "https://cdn.jsdelivr.net/gh/$repo/$f" "https://cdn.jsdelivr.net/gh/$repo@main/$f"; do
-                got=$(curl -sS -m 20 "$u" | sha256sum | cut -c1-16)
-                [ "$got" = "$want" ] || stale="$stale $u"
-              done
+          for f in package.json app/index.html service.js; do
+            want=$(sha256sum "$f" | cut -c1-16)
+            for u in "https://cdn.jsdelivr.net/gh/$repo/$f" "https://cdn.jsdelivr.net/gh/$repo@main/$f"; do
+              got=$(curl -sS -m 20 "$u" | sha256sum | cut -c1-16)
+              if [ "$got" = "$want" ]; then echo "aggiornato: $u"; else echo "ancora vecchio (scade entro 12 ore): $u"; fi
             done
-            if [ -z "$stale" ]; then
-              okRuns=$((okRuns + 1)); echo "tentativo $i: tutti i file aggiornati ($okRuns/2)"
-              [ "$okRuns" -ge 2 ] && { echo "jsDelivr serve i file nuovi."; exit 0; }
-              sleep 10; continue
-            fi
-            okRuns=0
-            echo "tentativo $i: ancora vecchi:$stale"
-            body=$(printf '%s\n' $stale | sed 's#https://cdn.jsdelivr.net##' | jq -R -n '{path: [inputs | select(length > 0)]}')
-            curl -sS -m 30 -o /dev/null -X POST -H 'Content-Type: application/json' -d "$body" https://purge.jsdelivr.net/ || true
-            sleep 25
           done
-          echo "::warning::dopo 12 tentativi jsDelivr serve ancora qualche file vecchio: la cache scade da sola entro 12 ore"
+          sha=$(git rev-parse HEAD)
+          for f in app/launcher.html app/icons.js service-core.js; do
+            want=$(sha256sum "$f" | cut -c1-16); got=$(curl -sS -m 20 "https://cdn.jsdelivr.net/gh/$repo@$sha/$f" | sha256sum | cut -c1-16)
+            if [ "$got" = "$want" ]; then echo "ok @sha: $f"; else echo "::warning::$f non ancora disponibile a @$sha su jsDelivr"; fi
+          done
