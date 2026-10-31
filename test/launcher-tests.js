@@ -63,8 +63,16 @@ async function main() {
   await key(page, 'ArrowDown'); await key(page, 'ArrowDown'); await key(page, 'ArrowRight'); await sleep(500); s = await state(page);
   ok(s.gridOpen && s.sections.filter(x => x.focus >= 0).length === 1, 'navigazione a 4 direzioni nella griglia', s.sections);
   await page.screenshot({ path: path.join(SHOTS, 'p1-grid-nav.png') });
+  // scorrimento: la scheda a fuoco deve restare dentro l'area visibile anche nelle ultime sezioni (e tornando su)
+  const inView = () => page.evaluate(() => { const c = document.querySelector('#sections .card.is-focus').getBoundingClientRect(), v = document.querySelector('#all .viewport').getBoundingClientRect(); return { ok: c.top >= v.top - 1 && c.bottom <= v.bottom + 1, top: Math.round(c.top), bottom: Math.round(c.bottom), vtop: Math.round(v.top), vbottom: Math.round(v.bottom) }; });
+  for (let i = 0; i < 8; i++) await key(page, 'ArrowDown'); await sleep(500); let iv = await inView(); s = await state(page);
+  ok(s.sections[s.sections.length - 1].focus >= 0 && iv.ok, 'ultima sezione: scheda a fuoco visibile', iv);
+  await page.screenshot({ path: path.join(SHOTS, 'p1-grid-last.png') });
+  for (let i = 0; i < 2; i++) await key(page, 'ArrowUp'); await sleep(500); iv = await inView(); ok(iv.ok, 'risalendo: scheda a fuoco visibile', iv);
+  for (let i = 0; i < 8; i++) await key(page, 'ArrowUp'); await sleep(500); s = await state(page); ok(!s.gridOpen, '↑ oltre la prima sezione chiude la griglia');
+  await key(page, 'ArrowDown'); await sleep(500);
   await key(page, 'Escape'); await sleep(600); s = await state(page); ok(!s.gridOpen, 'Indietro chiude la griglia');
-  await key(page, 'ArrowUp'); await sleep(400); s = await state(page); ok(s.menu === 'Milano Home 2.0.0', '↑ apre il menu', s.menu);
+  await key(page, 'ArrowUp'); await sleep(400); s = await state(page); ok(s.menu === 'Milano Home 2.0.1', '↑ apre il menu', s.menu);
   await page.screenshot({ path: path.join(SHOTS, 'p1-menu.png') });
   for (let i = 0; i < 6; i++) await key(page, 'ArrowDown');
   await key(page, 'Enter'); await sleep(800); s = await state(page);
@@ -93,7 +101,7 @@ async function main() {
 
   console.log('\n[P3] main avanza: il launcher scarica il nuovo (per la prossima apertura) e aggiorna subito il servizio');
   const over = fs.mkdtempSync(path.join(os.tmpdir(), 'mh-over-')); fs.mkdirSync(path.join(over, 'app'));
-  fs.writeFileSync(path.join(over, 'app', 'launcher.html'), fs.readFileSync(path.join(ROOT, 'app', 'launcher.html'), 'utf8').replace("var VERSION='2.0.0';", "var VERSION='2.0.0-next';"));
+  fs.writeFileSync(path.join(over, 'app', 'launcher.html'), fs.readFileSync(path.join(ROOT, 'app', 'launcher.html'), 'utf8').replace("var VERSION='2.0.1';", "var VERSION='2.0.0-next';"));
   await get(NET + '/__ctl?offline=0&sha=' + SHA2 + '&override=' + encodeURIComponent(SHA2 + ':' + over));
   page = await openLauncher(ctx, errs); s = await state(page);
   ok(s.ref === SHA1 && s.source === 'cache', 'apertura ancora dalla cache vecchia');
@@ -120,6 +128,16 @@ async function main() {
   await get(NET + '/__ctl?offline=0'); await page.waitForSelector('#row .item', { timeout: 40000 }); s = await state(page);
   ok(s.source === 'rete' && s.items.length >= 5, 'launcher partito da solo al ritorno della rete');
   await page.close(); await ctx2.close();
+
+  console.log('\n[P4b] prima installazione con GitHub API giù ma jsDelivr su: ripiego sul ramo main, messo in cache');
+  const ctx4 = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  await get(NET + '/__ctl?offline=3');   // solo l\'API di GitHub giù
+  page = await ctx4.newPage(); watchPage(page, errs); await page.goto(MODULE); await page.waitForSelector('#row .item', { timeout: 40000 }); await sleep(800); s = await state(page);
+  ok(s.ref === 'main' && s.source === 'rete' && s.cache && s.cache.ref === 'main' && s.cache.html.indexOf('window.MH_ICONS') > 0, 'launcher dal ramo main, salvato in cache', { ref: s.ref, cache: s.cache && s.cache.ref });
+  await page.close(); await get(NET + '/__ctl?offline=2');
+  page = await ctx4.newPage(); watchPage(page, errs); await page.goto(MODULE); await page.waitForSelector('#row .item', { timeout: 20000 }); s = await state(page);
+  ok(s.ref === 'main' && s.source === 'cache', 'riapertura senza rete dalla cache del ripiego');
+  await get(NET + '/__ctl?offline=0'); await page.close(); await ctx4.close();
 
   console.log('\n[P5] anteprima locale (file://): modalità demo con icone, nessun errore');
   const ctx3 = await browser.newContext({ viewport: { width: 1920, height: 1080 } });

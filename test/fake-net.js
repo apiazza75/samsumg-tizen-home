@@ -23,7 +23,7 @@ function serve(req, res) {
     if (u.searchParams.has('modules')) state.modules = JSON.parse(u.searchParams.get('modules'));
     return res.end(JSON.stringify(state));
   }
-  if (state.offline === 1 || (state.offline === 2 && !/\/app\/index\.html$/.test(u.pathname))) { req.socket.destroy(); return; }
+  if (state.offline === 1 || (state.offline === 2 && !/\/app\/index\.html$/.test(u.pathname)) || (state.offline === 3 && u.pathname === '/api/commits/main')) { req.socket.destroy(); return; }   // 3: solo l'API di GitHub giù
   if (u.pathname === '/api/commits/main') { res.setHeader('Content-Type', 'text/plain'); return res.end(state.sha); }
   const m = /^\/gh\/([^/@]+\/[^/@]+)(?:@([^/]+))?\/(.+)$/.exec(u.pathname);
   if (m && m[1] === REPO) {
