@@ -19,13 +19,20 @@ const APPS = [
   { id: 'org.tizen.tts-engine', name: '', iconPath: '', packageId: 'org.tizen.tts-engine', show: false },
   { id: 'kIciSQiYEM.Sconosciuta', name: 'App senza icona', iconPath: '', packageId: 'kIciSQiYEM', show: true }
 ];
+const LAUNCH_LOG = process.env.MH_DATA_DIR ? path.join(process.env.MH_DATA_DIR, 'launched.json') : null;
+function logLaunch(entry) { if (!LAUNCH_LOG) return; let list = []; try { list = JSON.parse(fs.readFileSync(LAUNCH_LOG, 'utf8')); } catch (e) {} list.push(Object.assign({ at: Date.now() }, entry)); fs.writeFileSync(LAUNCH_LOG, JSON.stringify(list)); }
+function ApplicationControlData(key, value) { this.key = key; this.value = value; }
+function ApplicationControl(operation, uri, mime, category, data) { this.operation = operation; this.uri = uri; this.mime = mime; this.category = category; this.data = data || []; }
 global.tizen = {
+  ApplicationControl, ApplicationControlData,
   application: {
     getAppsInfo(ok) { setTimeout(() => ok(APPS.map(a => Object.assign({}, a))), 10); },
-    launch(id, ok, err) { global.__launched = (global.__launched || []).concat(id); if (id.indexOf('fail') >= 0) return err && err(new Error('launch refused')); ok && ok(); },
+    launch(id, ok, err) { logLaunch({ method: 'launch', id }); if (id.indexOf('fail') >= 0) return err && err(new Error('launch refused')); ok && ok(); },
+    launchAppControl(ctrl, id, ok, err) { logLaunch({ method: 'appcontrol', id, operation: ctrl.operation, data: ctrl.data.map(d => ({ key: d.key, value: d.value })) }); if (process.env.MH_FAKE_NO_APPCONTROL) return err && err(new Error('NotSupportedError')); ok && ok(); },
     getCurrentApplication() { return { appInfo: { packageId: 'xvvl3S1bvH' } }; }
   }
 };
+if (process.env.MH_FAKE_NO_APPCONTROL === 'ctor') { delete global.tizen.ApplicationControl; }
 const sandbox = {};
 Object.getOwnPropertyNames(global).forEach(prop => {
   const disAllowed = ['services', 'module', 'global', 'inDebug', 'currentClient', 'currentModule'];

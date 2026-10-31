@@ -21,7 +21,7 @@ Menu ↑: scegli e ordina le app della riga, nomi degli ingressi HDMI, app di si
 
 Nella griglia trovi anche **TizenBrew** (torna alla pagina dei moduli), **Impostazioni TV** (menu Samsung sopra il launcher), **Home Samsung** e **Spegni** (Invio due volte). HDMI, Home, Spegni e Impostazioni TV usano l'API telecomando Samsung: al primo uso la TV chiede di consentire "Milano Home".
 
-Il launcher ricorda l'ultima app aperta e quando l'hai aperta, tiene in cache l'elenco delle app per partire subito, e mostra un saluto in base all'ora. Quando esci da un'app aperta dal launcher, Milano Home torna in primo piano da sola (disattivabile dal menu).
+Il launcher ricorda l'ultima app aperta e quando l'hai aperta, tiene in cache l'elenco delle app per partire subito, e mostra un saluto in base all'ora. Quando esci da un'app aperta dal launcher, Milano Home torna in primo piano da sola (disattivabile dal menu). Per una TV fluida il launcher non usa sfocature né ombre multiple: solo trasformazioni e dissolvenze.
 
 ## Come funziona: parte senza rete, si aggiorna da solo
 
@@ -44,7 +44,9 @@ Le icone sono **nostre** (`app/icons.js`, SVG che replicano quelle originali, 45
 
 ## Canale telecomando
 
-Il servizio parla con la TV su `samsung.remote.control` provando in ordine l'IP di rete della TV e `127.0.0.1`, porta 8002 (TLS, con token rilasciato dalla TV e salvato in `/home/owner/share/milanohome.json`) e 8001 in chiaro; ricorda la combinazione che funziona e registra ogni tentativo (stretta di mano, eventi, codice e motivo di chiusura) nella Diagnostica. Se la TV rifiuta: *Impostazioni → Generale → Gestione dispositivi esterni → Gestione connessioni dispositivi*, "Notifica di accesso" attiva e "Milano Home" consentito; poi menu ↑ → "Riprova il collegamento con la TV".
+Il servizio parla con la TV su `samsung.remote.control` provando in ordine l'IP di rete della TV e `127.0.0.1`, porta 8002 (TLS) e 8001, e le due versioni del canale, `/api/v2/` e `/api/v3/`: quale funzioni dipende dal firmware. Su alcuni il v2 chiude subito con codice 1005 "notack" (la richiesta di accoppiamento non viene nemmeno mostrata, oppure il token salvato non è più valido) e il v3 accetta i tasti senza accoppiamento; su altri è il contrario e il v3 risponde `ms.error` ai tasti. Il servizio ricorda la combinazione buona, dimentica un token rifiutato, scarta il canale che rifiuta i tasti e registra ogni tentativo (stretta di mano, eventi, codice e motivo di chiusura) nella Diagnostica. Se la TV rifiuta: *Impostazioni → Generale → Gestione dispositivi esterni → Gestione connessioni dispositivi*, "Notifica di accesso" attiva e "Milano Home" consentito; poi menu ↑ → "Riprova il collegamento con la TV".
+
+Quando esci da un'app aperta dal launcher, il servizio riapre TizenBrew con un *app control* che indica il modulo Milano Home (il meccanismo con cui TizenBrew permette ad altre app di aprire un modulo), così si torna al launcher e non alla pagina dei moduli; se l'API non è disponibile ripiega sul semplice avvio di TizenBrew.
 
 ## Collaudo
 

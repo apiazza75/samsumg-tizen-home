@@ -5,7 +5,7 @@
    ES5 per Node vecchi. Gli endpoint che agiscono sulla TV accettano solo richieste dalla pagina di TizenBrew. */
 (function () {
   'use strict';
-  var VERSION = '2.0.1';
+  var VERSION = '2.1.0';
   // commit in uso e bootstrap: li passa service.js come argomenti (nella sandbox di TizenBrew `global` non esiste)
   var REF = (function () { try { return (typeof MH_REF !== 'undefined' && MH_REF) || Function('return this')().MH_REF || null; } catch (e) { return null; } })();
   var BOOT = (function () { try { return (typeof MH_BOOT !== 'undefined' && MH_BOOT) || Function('return this')().MH_BOOT || null; } catch (e) { return null; } })();
@@ -59,9 +59,23 @@
     try { var r = http.get({ host: TV_HOST, port: TV_PORT, path: path }, function (res) { var b = ''; res.on('data', function (c) { b += c; }); res.on('end', function () { try { cb(null, JSON.parse(b)); } catch (e) { cb(e); } }); });
       r.on('error', function (e) { cb(e); }); r.setTimeout(3000, function () { try { r.abort(); } catch (e) {} }); } catch (e) { cb(e); }
   }
+  // TizenBrew accetta un app control con {moduleName, moduleType}: la sua UI apre direttamente quel modulo (è il meccanismo con cui
+  // altre app possono lanciare un modulo). Così, se TizenBrew era stato chiuso dalla TV mentre l'app era aperta, si torna a Milano
+  // Home e non alla pagina dei moduli. Se l'API non c'è, ripiego sul semplice launch dell'app.
+  var lastReturn = null;
+  var MODULE_NAME = 'apiazza75/samsung-tizen-home', MODULE_TYPE = 'gh';
   function bringLauncherBack() {
     if (!hasTizen()) return;
-    try { tizen.application.launch(SELF_APP, function () { log('launcher in primo piano'); }, function (e) { log('launch launcher failed ' + (e && e.message)); }); } catch (e) { log(e.message); }
+    var rec = { at: Date.now(), method: 'appcontrol', error: null }; lastReturn = rec;
+    function plain(why) {
+      rec.method = 'launch'; rec.error = why || null;
+      try { tizen.application.launch(SELF_APP, function () { log('launcher in primo piano (launch)'); }, function (e) { rec.error = 'launch: ' + (e && e.message); log(rec.error); }); } catch (e) { rec.error = 'launch: ' + e.message; log(rec.error); }
+    }
+    try {
+      var payload = JSON.stringify({ moduleName: MODULE_NAME, moduleType: MODULE_TYPE, args: '' });
+      var ctrl = new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/default', null, null, null, [new tizen.ApplicationControlData('module', [payload])]);
+      tizen.application.launchAppControl(ctrl, SELF_APP, function () { log('launcher in primo piano (app control)'); }, function (e) { plain('appcontrol: ' + (e && e.message)); });
+    } catch (e) { plain('appcontrol: ' + e.message); }
   }
   function watchApp(id) {
     if (watch) { clearInterval(watch.timer); watch = null; }
@@ -170,26 +184,32 @@
          sequenza, chiusura dopo 5 s di inattività. Si provano in ordine le combinazioni host/porta (IP di rete e 127.0.0.1, 8002 TLS
          e 8001 in chiaro) finché una risponde ms.channel.connect; quella buona viene ricordata. Sulla 8002 la TV rilascia un token,
          salvato e riusato (così chiede "Consenti" una volta sola). Ogni tentativo viene registrato per la Diagnostica. --- */
-  var chan = null, tvQueue = [], tvBusy = false, tvIdleTimer = null, lastChanError = null, attempts = [];
+  var chan = null, tvQueue = [], tvBusy = false, tvIdleTimer = null, lastChanError = null, attempts = [], badCombos = {};
+  // Canale v2 (/api/v2/...) e v3 (/api/v3/...): quale funzioni dipende dal firmware. Su alcuni il v2 chiude con 1005 "notack" (richiesta
+  // di accoppiamento mai mostrata, o token scaduto) mentre il v3 accetta i tasti senza accoppiamento; su altri è il contrario e il v3
+  // risponde ms.error ai tasti. Si provano in ordine, si ricorda la combinazione buona e si scarta quella che rifiuta i tasti.
+  function comboKey(c) { return c.host + ':' + c.port + '/' + c.api; }
   function combos() {
     var st = loadState(), lan = lanIp(), list = [], seen = {};
-    function add(host, tls) { if (!host) return; var k = host + ':' + (tls ? TV_PORT_TLS : TV_PORT); if (seen[k]) return; seen[k] = 1; list.push({ host: host, port: tls ? TV_PORT_TLS : TV_PORT, tls: !!tls }); }
-    if (st.chan && st.chan.host) add(st.chan.host, st.chan.tls);
-    add(lan, true); add(lan, false); add(TV_HOST, true); add(TV_HOST, false);
+    function add(host, tls, api) { if (!host) return; var c = { host: host, port: tls ? TV_PORT_TLS : TV_PORT, tls: !!tls, api: api || 'v2' }; var k = comboKey(c); if (seen[k] || badCombos[k]) return; seen[k] = 1; list.push(c); }
+    if (st.chan && st.chan.host) add(st.chan.host, st.chan.tls, st.chan.api);
+    add(lan, true, 'v2'); add(lan, true, 'v3'); add(TV_HOST, true, 'v2'); add(TV_HOST, true, 'v3');
+    add(lan, false, 'v2'); add(lan, false, 'v3'); add(TV_HOST, false, 'v2'); add(TV_HOST, false, 'v3');
     return list;
   }
   function openChannel(c, cb) {
     var state = loadState(), t0 = Date.now(), bytes = 0, events = [];
-    var rec = { host: c.host, port: c.port, tls: c.tls, result: null, code: null, reason: null, ms: 0, bytes: 0, events: events, at: t0 };
-    attempts.push(rec); if (attempts.length > 12) attempts.shift();
+    var useToken = !!(c.tls && c.api === 'v2' && state.token && !c.noToken);
+    var rec = { host: c.host, port: c.port, tls: c.tls, api: c.api, token: useToken, result: null, code: null, reason: null, ms: 0, bytes: 0, events: events, at: t0 };
+    attempts.push(rec); if (attempts.length > 16) attempts.shift();
     var name = B.from('Milano Home', 'utf8').toString('base64');
-    var path = '/api/v2/channels/samsung.remote.control?name=' + name + (c.tls && state.token ? '&token=' + encodeURIComponent(state.token) : '');
+    var path = '/api/' + c.api + '/channels/samsung.remote.control?name=' + name + (useToken ? '&token=' + encodeURIComponent(state.token) : '');
     var opts = { host: c.host, port: c.port, path: path, method: 'GET',
       headers: { 'Connection': 'Upgrade', 'Upgrade': 'websocket', 'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': crypto.randomBytes(16).toString('base64') } };
     if (c.tls) opts.rejectUnauthorized = false;
     var done = false, req = null;
-    function fail(err, kind, result) { if (done) return; done = true; clearTimeout(timer); rec.result = result || kind; rec.ms = Date.now() - t0; rec.bytes = bytes; try { if (req) req.abort(); } catch (e) {} cb({ message: String(err), kind: kind || 'error' }); }
-    var timer = setTimeout(function () { fail('nessuna conferma dalla TV: premi "Consenti" sull\'avviso e riprova', 'timeout', 'nessuna risposta in 30 s'); }, 30000);
+    function fail(err, kind, result) { if (done) return; done = true; clearTimeout(timer); rec.result = result || kind; rec.ms = Date.now() - t0; rec.bytes = bytes; try { if (req) req.abort(); } catch (e) {} cb({ message: String(err), kind: kind || 'error', code: rec.code, usedToken: useToken }); }
+    var timer = setTimeout(function () { fail('nessuna conferma dalla TV: premi "Consenti" sull\'avviso e riprova', 'timeout', 'nessuna risposta in 30 s'); }, c.api === 'v3' ? 8000 : 30000);
     try { req = (c.tls ? https : http).request(opts); } catch (e) { return fail(e.message, 'connect', 'errore: ' + e.message); }
     req.on('upgrade', function (res, socket, head) {
       events.push('101 upgrade ' + (Date.now() - t0) + 'ms');
@@ -202,10 +222,12 @@
           if (events.length < 8) events.push('evento ' + (msg.event || '?') + ' ' + (Date.now() - t0) + 'ms');
           if (!done) {
             if (msg.event === 'ms.channel.connect') { done = true; clearTimeout(timer); rec.result = 'ok'; rec.ms = Date.now() - t0; rec.bytes = bytes;
-              var tok = msg.data && msg.data.token; if (tok) { state.token = String(tok); }
-              state.chan = { host: c.host, tls: c.tls }; saveState(state);
+              var tok = msg.data && msg.data.token; if (tok && c.api === 'v2') { state.token = String(tok); }
+              state.chan = { host: c.host, tls: c.tls, api: c.api }; saveState(state);
               cb(null, ch); return; }
             if (msg.event === 'ms.channel.unauthorized') { fail('comando rifiutato: consenti "Milano Home" nella TV (Impostazioni → Generale → Gestione dispositivi esterni)', 'unauthorized', 'rifiutato (ms.channel.unauthorized)'); ch.close(); }
+            // la TV non ha mostrato (o nessuno ha accettato) la richiesta di accoppiamento: si prova il canale successivo (il v3 non la richiede)
+            if (msg.event === 'ms.channel.timeOut') { fail('la TV non ha accettato la richiesta di accoppiamento (ms.channel.timeOut)', 'connect', 'ms.channel.timeOut' + (useToken ? ' con token' : '')); ch.close(); }
             return; }
           broadcast(msg); },
         ping: function (p) { try { socket.write(wsFrame(p, 0xA)); } catch (e) {} },
@@ -231,12 +253,19 @@
       var c = list[i++];
       openChannel(c, function (err, ch) {
         if (!err) { chan = ch; lastChanError = null; return cb(null, ch); }
-        errs.push(c.host + ':' + c.port + ' ' + err.message);
+        errs.push(c.host + ':' + c.port + ' ' + c.api + ' ' + err.message);
         // rifiuto esplicito o avviso "Consenti" in attesa: inutile provare altre porte (riaprirebbero l'avviso)
         if (err.kind !== 'connect') { lastChanError = errs.join(' / '); return cb(lastChanError); }
+        // token rifiutato (la TV chiude con 1005 senza arrivare alla richiesta): lo dimentico e riprovo subito senza
+        if (err.usedToken && !c.noToken) { var st = loadState(); delete st.token; saveState(st); var again = {}; for (var k in c) again[k] = c[k]; again.noToken = true; list.splice(i, 0, again); }
         next();
       });
     })();
+  }
+  // il canale in uso rifiuta i comandi (ms.error): lo scarto per questa sessione e si riparte dalle altre combinazioni
+  function dropChannel(why) {
+    if (chan) { badCombos[comboKey(chan.combo)] = why; try { chan.close(); } catch (e) {} chan = null; }
+    var st = loadState(); if (st.chan) { delete st.chan; saveState(st); }
   }
   function scheduleIdleClose() { clearTimeout(tvIdleTimer); tvIdleTimer = setTimeout(function () { if (!tvBusy && !tvQueue.length && chan) chan.close(); }, 5000); }
   // tvRequest(messaggio, eventoAtteso|null, timeoutMs, cb(err, msg)); con eventoAtteso null è "invia e basta" (tasti)
@@ -248,21 +277,27 @@
       if (err) { tvBusy = false; var rest = tvQueue; tvQueue = []; job.cb(err); rest.forEach(function (j) { j.cb(err); }); return; }
       var done = false, t = setTimeout(function () { finish('la TV non ha risposto (' + job.ev + ')'); }, job.ms);
       function finish(e, data) { if (done) return; done = true; clearTimeout(t); var i = c.listeners.indexOf(on); if (i >= 0) c.listeners.splice(i, 1); tvBusy = false; job.cb(e, data); scheduleIdleClose(); pump(); }
-      function on(m) { if (m.event === 'mh.closed') return finish(m.error || 'connessione chiusa dalla TV'); if (job.ev && m.event === job.ev) finish(null, m); }
+      function on(m) { if (m.event === 'mh.closed') return finish(m.error || 'connessione chiusa dalla TV');
+        if (m.event === 'ms.error') return finish('ms.error: ' + ((m.data && m.data.message) || 'comando rifiutato'));
+        if (job.ev && m.event === job.ev) finish(null, m); }
       c.listeners.push(on);
       try { c.send(job.msg); } catch (e) { return finish(e.message); }
       if (!job.ev) setTimeout(function () { finish(null, null); }, 400);
     });
   }
-  function sendRemoteKey(key, cb) {
-    tvRequest({ method: 'ms.remote.control', params: { Cmd: 'Click', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey' } }, null, 5000, function (err) { cb(err || null); });
+  function sendRemoteKey(key, cb, retried) {
+    tvRequest({ method: 'ms.remote.control', params: { Cmd: 'Click', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey' } }, null, 5000, function (err) {
+      // canale che non riconosce ms.remote.control (succede sul v3 di alcuni firmware): lo scarto e riprovo una volta sulle altre combinazioni
+      if (err && /^ms\.error/.test(String(err)) && !retried) { log('tasto rifiutato su ' + (chan ? comboKey(chan.combo) : '?') + ': ' + err); dropChannel(String(err)); return sendRemoteKey(key, cb, true); }
+      cb(err || null);
+    });
   }
 
   /* --- icone dello Smart Hub (le stesse della home Samsung). Due fonti, in ordine:
          1) la cartella HUB_DIR, una sottocartella per app con 250x250.png (nessun canale necessario, se leggibile);
          2) il canale telecomando: ed.installedApp.get (elenco con percorso icona) e ed.apps.icon (immagine in base64).
          Cache su disco in ICON_CACHE. --- */
-  var hub = { apps: null, at: 0, error: null, pending: null, dir: null, dirError: null, dirAt: 0 };
+  var hub = { apps: null, at: 0, error: null, failAt: 0, pending: null, dir: null, dirError: null, dirAt: 0 };
   function hubDirList() {
     if (hub.dir && Date.now() - hub.dirAt < 600000) return hub.dir;
     try { var names = fs.readdirSync(HUB_DIR); hub.dir = names.filter(function (n) { return n && n.charAt(0) !== '.'; }); hub.dirError = null; }
@@ -272,6 +307,7 @@
   function hubDirIcon(id) { return HUB_DIR + '/' + String(id).replace(/[^A-Za-z0-9._-]/g, '_') + '/250x250.png'; }
   function hubList(cb) {
     if (hub.apps && Date.now() - hub.at < 600000) return cb(null, hub.apps);
+    if (hub.error && Date.now() - hub.failAt < 120000) return cb(hub.error, null);
     if (hub.pending) return hub.pending.push(cb);
     hub.pending = [cb];
     tvRequest({ method: 'ms.channel.emit', params: { event: 'ed.installedApp.get', to: 'host' } }, 'ed.installedApp.get', 10000, function (err, msg) {
@@ -280,7 +316,7 @@
       if (!err) {
         hub.apps = list.map(function (a) { return { appId: String(a.appId || ''), name: String(a.name || ''), icon: String(a.icon || ''), type: a.app_type }; });
         hub.at = Date.now(); hub.error = null; log('Smart Hub: ' + hub.apps.length + ' app');
-      } else { hub.error = String(err); log('Smart Hub non disponibile: ' + hub.error); }
+      } else { hub.error = String(err); hub.failAt = Date.now(); log('Smart Hub non disponibile: ' + hub.error); }
       var w = hub.pending; hub.pending = null; w.forEach(function (f) { f(err, hub.apps); });
     });
   }
@@ -342,9 +378,9 @@
     var url = req.url || '/', q = qs(url), path = url.split('?')[0];
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }); return res.end(); }
     if (path === '/ping') { var dir = hubDirList();
-      return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: VERSION, ref: REF, self: SELF_APP, watching: watch ? watch.id : null, lan: lanIp(),
+      return json(res, 200, { ok: true, tizen: hasTizen(), node: process.version, v: VERSION, ref: REF, self: SELF_APP, watching: watch ? watch.id : null, lan: lanIp(), lastReturn: lastReturn,
         boot: BOOT ? BOOT.info() : null,
-        hub: { apps: hub.apps ? hub.apps.length : null, error: hub.error, dir: dir ? dir.length : null, dirError: hub.dirError, chan: loadState().chan || null, channelError: lastChanError, attempts: attempts.slice(-6) } }); }
+        hub: { apps: hub.apps ? hub.apps.length : null, error: hub.error, dir: dir ? dir.length : null, dirError: hub.dirError, chan: loadState().chan || null, channelError: lastChanError, bad: Object.keys(badCombos), attempts: attempts.slice(-10) } }); }
     if (path === '/apps') return listApps(function (err, apps) {
       if (err) return json(res, 500, { error: err });
       var dirIds = hubDirList();
@@ -390,7 +426,7 @@
     }
     if (path === '/key') { var k = (q.key || '').replace(/[^A-Z0-9_]/g, ''); if (!k) return json(res, 400, { error: 'key?' });
       return sendRemoteKey(k, function (err) { if (err) return json(res, 500, { error: String(err) }); json(res, 200, { ok: true }); }); }
-    if (path === '/hubreset') { hub.apps = null; hub.at = 0; hub.error = null; attempts = []; var st = loadState(); delete st.chan; saveState(st); if (chan) chan.close();
+    if (path === '/hubreset') { hub.apps = null; hub.at = 0; hub.error = null; hub.failAt = 0; attempts = []; badCombos = {}; var st = loadState(); delete st.chan; saveState(st); if (chan) chan.close();
       return hubList(function (err, list) { json(res, 200, { error: err ? String(err) : null, apps: list ? list.length : null, attempts: attempts }); }); }
     json(res, 404, { error: 'not found' });
   });
