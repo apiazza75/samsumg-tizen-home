@@ -76,7 +76,7 @@ async function main() {
   await page.screenshot({ path: path.join(SHOTS, 'p1-menu.png') });
   for (let i = 0; i < 6; i++) await key(page, 'ArrowDown');
   await key(page, 'Enter'); await sleep(800); s = await state(page);
-  ok(s.debug && /commit 1111111 da rete/.test(s.debug) && /servizio: ok v2\.0\.0 commit 1111111/.test(s.debug) && /Smart Hub: 6 app dal canale/.test(s.debug) && /canale ok su 127\.0\.0\.2:8002/.test(s.debug), 'Diagnostica: commit, servizio, Smart Hub, canale', s.debug && s.debug.slice(0, 600));
+  ok(s.debug && /commit 1111111 da rete/.test(s.debug) && /servizio: ok v2\.0\.1 commit 1111111/.test(s.debug) && /Smart Hub: 6 app dal canale/.test(s.debug) && /canale ok su 127\.0\.0\.2:8002/.test(s.debug), 'Diagnostica: commit, servizio, Smart Hub, canale', s.debug && s.debug.slice(0, 600));
   await page.screenshot({ path: path.join(SHOTS, 'p1-diag.png') });
   await key(page, 'Escape'); await sleep(6000); // il controllo aggiornamenti parte dopo 4 s
   await key(page, 'ArrowUp'); for (let i = 0; i < 6; i++) await key(page, 'ArrowDown'); await key(page, 'Enter'); await sleep(800); s = await state(page);
