@@ -143,7 +143,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
-  var VERSION='2.0.0';
+  var VERSION='2.0.1';
   var isTV=location.protocol!=='file:'&&location.hostname==='127.0.0.1'; // caricato da TizenBrew
   var REPO='apiazza75/samsung-tizen-home';
   var CDN=window.MH_CDN||'https://cdn.jsdelivr.net/gh/'+REPO+'@', API=window.MH_API||'https://api.github.com/repos/'+REPO+'/commits/main';
@@ -358,9 +358,10 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     if(gridOpen)gfocus();}
   function gfocus(){if(!gsec.length)return;gi=Math.max(0,Math.min(gi,gsec.length-1));gj=Math.max(0,Math.min(gj,gsec[gi].items.length-1));
     gsec.forEach(function(s,si){s.els.forEach(function(e,ii){e.classList.toggle('is-focus',si===gi&&ii===gj)});});
-    var el=gsec[gi].els[gj],vp=secEl.parentNode,vh=vp.clientHeight,top=el.offsetTop+el.parentNode.offsetTop+el.parentNode.parentNode.offsetTop,h=el.offsetHeight,cur0=secEl._shift||0,shift=cur0;
-    var secTop=el.parentNode.parentNode.offsetTop;
-    if(secTop-shift<0)shift=secTop;if(top+h+vh*0.06-shift>vh)shift=top+h+vh*0.06-vh;if(gj===0&&gi===0)shift=0;
+    // posizioni misurate rispetto al contenitore che scorre (indipendenti da transform e da offsetParent)
+    var el=gsec[gi].els[gj],vp=secEl.parentNode,vh=vp.clientHeight,base=secEl.getBoundingClientRect().top,top=el.getBoundingClientRect().top-base,h=el.offsetHeight,cur0=secEl._shift||0,shift=cur0;
+    var secTop=el.parentNode.parentNode.getBoundingClientRect().top-base;
+    if(secTop-shift<0)shift=secTop;if(top+h+vh*0.06-shift>vh)shift=top+h+vh*0.06-vh;if(gj===0&&gi===0)shift=0;if(shift<0)shift=0;
     secEl._shift=shift;secEl.style.transform='translateY('+(-shift)+'px)';setTint(tintOf(gsec[gi].items[gj]));}
   function openGrid(){if(!gsec.length){toast('Nessuna app da mostrare');return;}gridOpen=true;
     var it=items[cur];gi=0;gj=0;if(it){gsec.forEach(function(s,si){var k=s.items.indexOf(it);if(k>=0){gi=si;gj=k;}});}

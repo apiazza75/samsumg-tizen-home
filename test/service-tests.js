@@ -45,7 +45,7 @@ async function main() {
   let p = await waitPing(8000);
   ok(!!p, 'servizio risponde a /ping', svc.log);
   if (p) {
-    ok(p.v === '2.0.0', 'versione 2.0.0', p.v);
+    ok(p.v === '2.0.1', 'versione 2.0.0', p.v);
     ok(p.ref === SHA1, 'core dal commit di main (' + SHA1.slice(0, 7) + ')', p.ref);
     ok(p.boot && p.boot.source === 'rete', 'avviato dalla rete', p.boot);
     ok(p.lan === '127.0.0.2', 'IP di rete rilevato', p.lan);
@@ -87,7 +87,7 @@ async function main() {
 
   console.log('\n[S2] aggiornamento a caldo: main avanza a un commit con un core diverso');
   const over = tmpDir(); fs.mkdirSync(path.join(over, 'app'));
-  fs.writeFileSync(path.join(over, 'service-core.js'), fs.readFileSync(path.join(ROOT, 'service-core.js'), 'utf8').replace("var VERSION = '2.0.0';", "var VERSION = '2.0.0-next';"));
+  fs.writeFileSync(path.join(over, 'service-core.js'), fs.readFileSync(path.join(ROOT, 'service-core.js'), 'utf8').replace("var VERSION = '2.0.1';", "var VERSION = '2.0.0-next';"));
   await ctlNet('sha=' + SHA2 + '&override=' + SHA2 + ':' + over);
   r = await get(SVC + '/update', fromPage, 30000); ok(r.code === 200 && r.json.action === 'updated' && r.json.ref === SHA2, '/update: updated → ' + SHA2.slice(0, 7), r.json);
   await sleep(2500);

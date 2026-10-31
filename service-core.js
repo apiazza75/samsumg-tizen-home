@@ -5,7 +5,7 @@
    ES5 per Node vecchi. Gli endpoint che agiscono sulla TV accettano solo richieste dalla pagina di TizenBrew. */
 (function () {
   'use strict';
-  var VERSION = '2.0.0';
+  var VERSION = '2.0.1';
   // commit in uso e bootstrap: li passa service.js come argomenti (nella sandbox di TizenBrew `global` non esiste)
   var REF = (function () { try { return (typeof MH_REF !== 'undefined' && MH_REF) || Function('return this')().MH_REF || null; } catch (e) { return null; } })();
   var BOOT = (function () { try { return (typeof MH_BOOT !== 'undefined' && MH_BOOT) || Function('return this')().MH_BOOT || null; } catch (e) { return null; } })();

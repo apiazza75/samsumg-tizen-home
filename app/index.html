@@ -48,7 +48,7 @@
   function firstLoad() {
     fetchText(API, 6000)
       .then(function (sha) { sha = sha.trim(); if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('sha?'); return fetchLauncher(sha).then(function (html) { writeCache(sha, html); show(html, sha, 'rete'); }); })
-      .catch(function () { return fetchLauncher('main').then(function (html) { show(html, 'main', 'rete'); }); })
+      .catch(function () { return fetchLauncher('main').then(function (html) { writeCache('main', html); show(html, 'main', 'rete'); }); })   // anche il ripiego va in cache: il launcher lo sostituirà con il commit esatto
       .catch(function (e) {
         var wait = [3, 5, 10, 20, 30][Math.min(attempt++, 4)];
         note('Milano Home · rete non disponibile (' + (e && e.message ? e.message : e) + ') · riprovo tra ' + wait + ' s · Invio riprova subito');
