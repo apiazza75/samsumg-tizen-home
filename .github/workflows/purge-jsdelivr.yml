@@ -43,3 +43,32 @@ jobs:
             echo "::warning::jsDelivr ha limitato alcuni path (throttled): la cache di quei file scade da sola entro 12 ore"
           fi
           echo "Purge completata."
+
+      - name: Verifica che jsDelivr serva i file nuovi (GitHub propaga il push in qualche minuto; se serve si ripete la purge)
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          files="package.json app/index.html service.js"
+          okRuns=0
+          for i in $(seq 1 12); do
+            stale=""
+            for f in $files; do
+              want=$(sha256sum "$f" | cut -c1-16)
+              for u in "https://cdn.jsdelivr.net/gh/$repo/$f" "https://cdn.jsdelivr.net/gh/$repo@main/$f"; do
+                got=$(curl -sS -m 20 "$u" | sha256sum | cut -c1-16)
+                [ "$got" = "$want" ] || stale="$stale $u"
+              done
+            done
+            if [ -z "$stale" ]; then
+              okRuns=$((okRuns + 1)); echo "tentativo $i: tutti i file aggiornati ($okRuns/2)"
+              [ "$okRuns" -ge 2 ] && { echo "jsDelivr serve i file nuovi."; exit 0; }
+              sleep 10; continue
+            fi
+            okRuns=0
+            echo "tentativo $i: ancora vecchi:$stale"
+            body=$(printf '%s\n' $stale | sed 's#https://cdn.jsdelivr.net##' | jq -R -n '{path: [inputs | select(length > 0)]}')
+            curl -sS -m 30 -o /dev/null -X POST -H 'Content-Type: application/json' -d "$body" https://purge.jsdelivr.net/ || true
+            sleep 25
+          done
+          echo "::warning::dopo 12 tentativi jsDelivr serve ancora qualche file vecchio: la cache scade da sola entro 12 ore"
