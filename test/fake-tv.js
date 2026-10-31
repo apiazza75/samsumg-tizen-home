@@ -1,6 +1,8 @@
 /* TV Samsung finta per i collaudi del servizio: API REST (porta 18001), canale telecomando WebSocket in chiaro (18001) e TLS (18002)
    con il flusso del token, ed.installedApp.get, ed.apps.icon (icona grande in un frame da >64 KB), ms.remote.control.
-   Modalità (variabile d'ambiente FAKE_TV_MODE o argomento): ok | tlsonly | closeall | lan8001only | unauth | silent.
+   Modalità (variabile d'ambiente FAKE_TV_MODE o argomento): ok | tlsonly | closeall | lan8001only | unauth | silent |
+   v3only (il v2 risponde ms.channel.timeOut e chiude 1005 "notack", il v3 collega senza token) | staletoken (il v2 con token chiude
+   1005 "notack", senza token chiede il consenso) | v3nokeys (il v3 collega ma risponde ms.error ai tasti; il v2 funziona).
    Controllo: GET /__ctl?mode=... | ?running=<id>:<0|1> | ?consent=<ms> ; GET /__keys (tasti ricevuti) ; GET /__conns (connessioni ws).
    Nessuna dipendenza: il lato server del WebSocket è implementato qui (handshake, frame in entrata mascherati, frame in uscita). */
 'use strict';
@@ -62,7 +64,8 @@ function parser(onText) {
 function upgrade(tls) {
   return (req, socket, head) => {
     const u = new URL(req.url, 'http://x'), host = (req.headers.host || '').split(':')[0], viaLan = host !== '127.0.0.1' && host !== 'localhost';
-    const tokenOk = u.searchParams.get('token') === TOKEN, conn = { tls, host, name: u.searchParams.get('name'), tokenOk, closed: null, at: Date.now() };
+    const api = /\/api\/v3\//.test(u.pathname) ? 'v3' : 'v2', hasToken = u.searchParams.has('token');
+    const tokenOk = u.searchParams.get('token') === TOKEN, conn = { tls, host, api, hasToken, name: u.searchParams.get('name'), tokenOk, closed: null, at: Date.now() };
     state.conns.push(conn);
     const key = crypto.createHash('sha1').update(req.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
     socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + key + '\r\n\r\n');
@@ -75,11 +78,15 @@ function upgrade(tls) {
     if (m === 'lan8001only' && (tls || !viaLan)) return setTimeout(() => closeWith(1001, viaLan ? 'tls-closed' : 'loopback'), 40);
     if (m === 'unauth') return setTimeout(() => { send({ event: 'ms.channel.unauthorized', data: {} }); closeWith(1000, ''); }, 40);
     if (m === 'silent') return;
-    const connect = () => send({ event: 'ms.channel.connect', data: tls ? { token: TOKEN, clients: [] } : { clients: [] } });
-    if (tls && !tokenOk) setTimeout(connect, state.consentDelay); else setTimeout(connect, 20);
+    if (m === 'v3only' && api === 'v2') return setTimeout(() => { send({ event: 'ms.channel.timeOut' }); closeWith(1005, 'notack'); }, 40);
+    if (m === 'staletoken' && api === 'v2' && hasToken && !tokenOk) return setTimeout(() => closeWith(1005, 'notack'), 40);
+    const connect = () => send({ event: 'ms.channel.connect', data: (tls && api === 'v2') ? { token: TOKEN, clients: [] } : { clients: [] } });
+    if (tls && api === 'v2' && !tokenOk) setTimeout(connect, state.consentDelay); else setTimeout(connect, 20);
     const feed = parser(txt => {
       let msg; try { msg = JSON.parse(txt); } catch (e) { return; }
-      if (msg.method === 'ms.remote.control') { state.keys.push(msg.params && msg.params.DataOfCmd); return; }
+      if (msg.method === 'ms.remote.control') {
+        if (state.mode === 'v3nokeys' && api === 'v3') { send({ event: 'ms.error', data: { message: 'unrecognized method value : ms.remote.control' } }); return; }
+        state.keys.push(msg.params && msg.params.DataOfCmd); return; }
       if (msg.method === 'ms.channel.emit' && msg.params) {
         if (msg.params.event === 'ed.installedApp.get') setTimeout(() => send({ event: 'ed.installedApp.get', from: 'host', data: { data: HUB_APPS } }), 30);
         if (msg.params.event === 'ed.apps.icon') setTimeout(() => send({ event: 'ed.apps.icon', from: 'host', data: { iconPath: msg.params.data.iconPath, imageBase64: ICON_PNG.toString('base64') } }), 30);

@@ -6,7 +6,8 @@ poi consegnare UNA volta (niente fix a tentativi, niente "prova questo e vediamo
 non lasciate in PR. Il nome del modulo sulla TV NON deve più cambiare.
 
 ## Stato del repository
-- main = 2.0.1 (71a15bd): 2.0.0 (PR #5) + Action purge con verifica (PR #6) + correzioni segnalate da Codex (PR #7).
+- main = 2.1.0: 2.0.0 (PR #5) + Action purge (PR #6, #9) + correzioni Codex 2.0.1 (PR #7) + 2.1.0 (canale v2/v3, ritorno con
+  app control, prestazioni, orologio leggero, preferenze azzerate).
 - Storia: 8c58710 = 1.5.0 · 9e90648 = 1.5.1 · f7a8fce = 1.6.0 · 9bdfd45 = documentazione · 2.0.0 (PR #5).
 - File: app/index.html e service.js (bootstrap stabili, ora con cache), app/launcher.html (launcher vero, font incorporato),
   app/icons.js (set di icone nostro, 45 app + 6 di sistema), service-core.js (servizio vero), package.json (2.0.0), README.md,
@@ -27,6 +28,23 @@ non lasciate in PR. Il nome del modulo sulla TV NON deve più cambiare.
 3. Module Manager: scrivere apiazza75/samsung-tizen-home senza gh/.
 4. Sandbox di TizenBrew: vm context con le proprietà di global TRANNE global, module, services, inDebug, currentClient,
    currentModule; `new Function(...)` esegue nel realm principale (dove esiste `tizen`). test/sandbox.js è la replica esatta.
+5b. Foto della 2.0.1 sulla TV (31/10 07:41): tutte e 4 le combinazioni (192.168.1.41 e 127.0.0.1, 8002 e 8001) chiuse dalla TV
+   DOPO la stretta di mano con "codice 1005 notack". Spiegazione trovata nel codice di darksider4all/yet-another-samsung-ha-
+   integration (misurato su un Samsung 2024): 1005 "notack" = richiesta di accoppiamento mai accettata/mostrata (ms.channel.timeOut)
+   o token non più valido; sullo stesso firmware il canale /api/v3/channels/samsung.remote.control accettava i tasti senza
+   accoppiamento, mentre su un firmware successivo il v2 funzionava e il v3 rispondeva ms.error ai tasti. La 2.1.0 prova v2 e v3
+   su tutte le combinazioni, dimentica il token rifiutato, scarta il canale che rifiuta i tasti. DA VERIFICARE sulla TV con la
+   Diagnostica 2.1.0 ("tentativi canale: host:porta/api → esito [eventi]"). Se anche il v3 chiude con 1005: i tasti HDMI/Spegni/
+   Home/Menu restano senza funzione; idee successive: launch delle app di sistema (Impostazioni, Home) via tizen.application.launch
+   e sorgenti HDMI come app Tizen (da cercare nei 439 id della Diagnostica), oppure tizen.tvwindow (privilegio non in TizenBrew).
+5c. Uscita da un'app (2.0.1): il servizio rilanciava TizenBrew con tizen.application.launch; la TV aveva chiuso TizenBrew, che
+   ripartiva sulla pagina dei moduli ("parte un caricamento, la home non si riapre"). La 2.1.0 usa launchAppControl con
+   {moduleName:'apiazza75/samsung-tizen-home', moduleType:'gh'} (chiave 'module'), il meccanismo con cui TizenBrew apre un modulo
+   su richiesta di un'altra app (UI: AppControlData → servizio: CanLaunchModules{type:'appControl'}); ripiego sul launch semplice.
+   Passa dallo stesso rilancio in debug (ADB/CDP) dell'autoavvio: se sulla TV l'autoavvio non funziona, potrebbe non funzionare
+   nemmeno questo. "ritorno a Milano Home: ..." in Diagnostica dice quale via è stata usata.
+5d. L'utente riferisce interfaccia lenta sulla 2.0.1: la 2.1.0 toglie backdrop-filter e filter:blur, riduce ombre e transizioni
+   (160-220 ms); /apps risponde subito per 2 minuti dopo un fallimento del canale. Orologio a peso 500 (era 700).
 5. La TV dell'utente: Tizen 6 (2021), Node v12.4.0 nel servizio, 439 app Tizen. Foto della Diagnostica 1.6.0 del 30/10:
    servizio ok, "Smart Hub: non disponibile (connessione chiusa dalla TV / connessione chiusa dalla TV)" = su 8001 e 8002 la
    stretta di mano WebSocket riesce (101) e poi la TV chiude senza inviare ms.channel.connect. Nell'elenco dispositivi della TV
@@ -55,7 +73,7 @@ non lasciate in PR. Il nome del modulo sulla TV NON deve più cambiare.
   si ferma su unauthorized/timeout (per non riaprire l'avviso "Consenti"). Variabili per i test: MH_TV_HOST, MH_TV_PORT,
   MH_TV_PORT_TLS, MH_LAN_IP, MH_HUB_DIR, MH_DATA_DIR, MH_CDN, MH_API.
 
-## Collaudi (test/run.sh): tutti superati prima del merge della 2.0.0
+## Collaudi (test/run.sh): tutti superati prima di ogni merge (2.1.0: 81 verifiche del servizio in 13 scenari, 41 del launcher)
 - Sintassi ES5 (acorn) di servizio, core, icone, index e launcher.
 - test/service-tests.js: 66 verifiche in 9 scenari (prima installazione; aggiornamento a caldo; avvio senza rete con cache;
   senza rete e senza cache; canale loopback chiuso/LAN ok; canale chiuso ovunque + cartella icone; unauthorized; bootstrap

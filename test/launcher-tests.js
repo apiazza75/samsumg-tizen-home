@@ -45,7 +45,9 @@ async function main() {
   const errs = [];
 
   console.log('\n[P1] prima apertura: bootstrap scarica il launcher dall\'ultimo commit e lo mette in cache');
+  { const pre = await ctx.newPage(); await pre.goto('http://127.0.0.1:8081/'); await pre.evaluate(() => { localStorage.setItem('mh_prefs', JSON.stringify({ order: ['hdmi1', 'hdmi2', 'tizenbrew', 'off', '11101200001.Netflix'], hidden: [], hdmi: { 1: 'Decoder' }, last: null, back: true })); }); await pre.close(); }
   let page = await openLauncher(ctx, errs); let s = await state(page);
+  ok(!s.items.some(i => /HDMI|Decoder|TizenBrew|Spegni/.test(i.name)) && (await page.evaluate(() => JSON.parse(localStorage.getItem('mh_prefs')))).v === 2 && (await page.evaluate(() => JSON.parse(localStorage.getItem('mh_prefs')))).hdmi[1] === 'Decoder', 'preferenze 1.x azzerate una volta (riga = solo preferiti), nomi HDMI conservati', s.items.map(i => i.name));
   ok(s.ref === SHA1 && s.source === 'rete', 'launcher dal commit ' + SHA1.slice(0, 7) + ' via rete', { ref: s.ref, source: s.source });
   ok(s.cache && s.cache.ref === SHA1 && s.cache.html.indexOf('window.MH_ICONS') > 0 && s.cache.html.indexOf('<script src="icons.js"></script>') < 0, 'cache in localStorage con le icone incorporate', s.cache && { ref: s.cache.ref, len: s.cache.html.length });
   ok(s.items.length >= 5 && s.items.length <= 8, 'riga con ' + s.items.length + ' preferiti', s.items.map(i => i.name));
@@ -72,11 +74,11 @@ async function main() {
   for (let i = 0; i < 8; i++) await key(page, 'ArrowUp'); await sleep(500); s = await state(page); ok(!s.gridOpen, '↑ oltre la prima sezione chiude la griglia');
   await key(page, 'ArrowDown'); await sleep(500);
   await key(page, 'Escape'); await sleep(600); s = await state(page); ok(!s.gridOpen, 'Indietro chiude la griglia');
-  await key(page, 'ArrowUp'); await sleep(400); s = await state(page); ok(s.menu === 'Milano Home 2.0.1', '↑ apre il menu', s.menu);
+  await key(page, 'ArrowUp'); await sleep(400); s = await state(page); ok(s.menu === 'Milano Home 2.1.0', '↑ apre il menu', s.menu);
   await page.screenshot({ path: path.join(SHOTS, 'p1-menu.png') });
   for (let i = 0; i < 6; i++) await key(page, 'ArrowDown');
   await key(page, 'Enter'); await sleep(800); s = await state(page);
-  ok(s.debug && /commit 1111111 da rete/.test(s.debug) && /servizio: ok v2\.0\.1 commit 1111111/.test(s.debug) && /Smart Hub: 6 app dal canale/.test(s.debug) && /canale ok su 127\.0\.0\.2:8002/.test(s.debug), 'Diagnostica: commit, servizio, Smart Hub, canale', s.debug && s.debug.slice(0, 600));
+  ok(s.debug && /commit 1111111 da rete/.test(s.debug) && /servizio: ok v2\.1\.0 commit 1111111/.test(s.debug) && /Smart Hub: 6 app dal canale/.test(s.debug) && /canale ok su 127\.0\.0\.2:8002/.test(s.debug), 'Diagnostica: commit, servizio, Smart Hub, canale', s.debug && s.debug.slice(0, 600));
   await page.screenshot({ path: path.join(SHOTS, 'p1-diag.png') });
   await key(page, 'Escape'); await sleep(6000); // il controllo aggiornamenti parte dopo 4 s
   await key(page, 'ArrowUp'); for (let i = 0; i < 6; i++) await key(page, 'ArrowDown'); await key(page, 'Enter'); await sleep(800); s = await state(page);
@@ -101,7 +103,7 @@ async function main() {
 
   console.log('\n[P3] main avanza: il launcher scarica il nuovo (per la prossima apertura) e aggiorna subito il servizio');
   const over = fs.mkdtempSync(path.join(os.tmpdir(), 'mh-over-')); fs.mkdirSync(path.join(over, 'app'));
-  fs.writeFileSync(path.join(over, 'app', 'launcher.html'), fs.readFileSync(path.join(ROOT, 'app', 'launcher.html'), 'utf8').replace("var VERSION='2.0.1';", "var VERSION='2.0.0-next';"));
+  fs.writeFileSync(path.join(over, 'app', 'launcher.html'), fs.readFileSync(path.join(ROOT, 'app', 'launcher.html'), 'utf8').replace("var VERSION='2.1.0';", "var VERSION='2.0.0-next';"));
   await get(NET + '/__ctl?offline=0&sha=' + SHA2 + '&override=' + encodeURIComponent(SHA2 + ':' + over));
   page = await openLauncher(ctx, errs); s = await state(page);
   ok(s.ref === SHA1 && s.source === 'cache', 'apertura ancora dalla cache vecchia');

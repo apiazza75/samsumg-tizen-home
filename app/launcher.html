@@ -12,17 +12,17 @@
 html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Figtree","Samsung One",sans-serif;overflow:hidden;cursor:none}
 *{box-sizing:border-box}
 .stage{position:fixed;top:0;left:0;right:0;bottom:0;overflow:hidden;background:var(--bg)}
-.wall{position:absolute;top:-5%;left:-5%;right:-5%;bottom:-5%;background-size:cover;background-position:center;opacity:0;transition:opacity 2.5s ease,filter .5s ease;will-change:transform,opacity}
+.wall{position:absolute;top:-5%;left:-5%;right:-5%;bottom:-5%;background-size:cover;background-position:center;opacity:0;transition:opacity 2.5s ease;will-change:transform,opacity}
 .wall.on{opacity:1}
 .wall.kb1{animation:kb1 50s linear forwards}.wall.kb2{animation:kb2 50s linear forwards}.wall.kb3{animation:kb3 50s linear forwards}.wall.kb4{animation:kb4 50s linear forwards}
-@keyframes kb1{from{transform:scale(1.02) translate(-2.5%,1.5%)}to{transform:scale(1.14) translate(2.5%,-1.5%)}}
-@keyframes kb2{from{transform:scale(1.14) translate(2.5%,1.5%)}to{transform:scale(1.02) translate(-2.5%,-1.5%)}}
-@keyframes kb3{from{transform:scale(1.05) translate(2.5%,-1.5%)}to{transform:scale(1.16) translate(-2.5%,1.5%)}}
-@keyframes kb4{from{transform:scale(1.16) translate(-2.5%,-1.5%)}to{transform:scale(1.04) translate(2.5%,1.5%)}}
-.stage.dim .wall{filter:blur(12px) brightness(.55)}
+@keyframes kb1{from{transform:scale(1.02) translate(-2%,1.2%)}to{transform:scale(1.11) translate(2%,-1.2%)}}
+@keyframes kb2{from{transform:scale(1.11) translate(2%,1.2%)}to{transform:scale(1.02) translate(-2%,-1.2%)}}
+@keyframes kb3{from{transform:scale(1.04) translate(2%,-1.2%)}to{transform:scale(1.12) translate(-2%,1.2%)}}
+@keyframes kb4{from{transform:scale(1.12) translate(-2%,-1.2%)}to{transform:scale(1.03) translate(2%,1.2%)}}
+.stage.dim .wall{opacity:.35}
 .hdr,.wx,.dock,.hint,.credit{transition:opacity .3s ease}
 .stage.dim .hdr,.stage.dim .wx,.stage.dim .dock,.stage.dim .hint,.stage.dim .credit{opacity:0}
-.tint{position:absolute;top:0;left:0;right:0;bottom:0;opacity:0;transition:opacity .9s ease;pointer-events:none}
+.tint{position:absolute;top:0;left:0;right:0;bottom:0;opacity:0;transition:opacity .6s ease;pointer-events:none}
 .tint.on{opacity:1}
 .vignette{position:absolute;top:0;left:0;right:0;bottom:0;background:
   radial-gradient(ellipse 120% 90% at 50% 45%,transparent 50%,rgba(3,5,12,.5) 100%),
@@ -30,12 +30,12 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 .credit{position:absolute;left:3vw;bottom:1.6vh;font-size:.75vw;color:rgba(244,246,251,.35);letter-spacing:.08em;text-transform:uppercase}
 /* orologio a sinistra */
 .hdr{position:absolute;left:5vw;top:6vh;text-shadow:0 2px 24px rgba(0,0,0,.6)}
-.hdr .greet{font-size:1.7vw;color:rgba(244,246,251,.8);font-weight:500;margin-bottom:.2vw}
-.hdr .clock{font-size:7.4vw;font-weight:700;line-height:1;letter-spacing:-.04em}
-.hdr .date{font-size:1.8vw;color:rgba(244,246,251,.8);margin-top:.6vw;text-transform:capitalize}
+.hdr .greet{font-size:1.7vw;color:rgba(244,246,251,.78);font-weight:400;margin-bottom:.2vw}
+.hdr .clock{font-size:7.6vw;font-weight:500;line-height:1;letter-spacing:-.035em;color:rgba(255,255,255,.96);text-shadow:0 2px 30px rgba(0,0,0,.45),0 0 1px rgba(255,255,255,.6)}
+.hdr .date{font-size:1.8vw;color:rgba(244,246,251,.78);font-weight:400;margin-top:.6vw;text-transform:capitalize}
 /* meteo in colonna a destra */
-.wx{position:absolute;right:5vw;top:6vh;width:19vw;padding:1.2vw 1.4vw;border-radius:1.6vw;background:var(--glass);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
-  box-shadow:inset 0 1px 0 var(--glass-edge),0 20px 50px rgba(0,0,0,.35);text-align:right}
+.wx{position:absolute;right:5vw;top:6vh;width:19vw;padding:1.2vw 1.4vw;border-radius:1.6vw;background:rgba(20,26,44,.55);
+  box-shadow:inset 0 1px 0 var(--glass-edge);text-align:right}
 .wx .now{display:flex;align-items:center;justify-content:flex-end}
 .wx .now svg{width:3.6vw;height:3.6vw;margin-right:.8vw;flex:none}
 .wx .t{font-size:3.6vw;font-weight:700;line-height:1;letter-spacing:-.03em}
@@ -52,55 +52,55 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 /* riga delle app: tile quadrate, nome sotto */
 .dock{position:absolute;left:0;right:0;bottom:10vh}
 .dock .viewport{overflow:hidden;padding:2.2vw 0 2.2vw 5vw;margin:-2.2vw 0}
-.row{display:flex;transition:transform .35s cubic-bezier(.2,.8,.2,1);will-change:transform}
+.row{display:flex;transition:transform .22s ease-out;will-change:transform}
 .item{flex:none;width:8.4vw;margin-right:1.7vw;text-align:center}
 .ico{position:relative;width:8.4vw;height:8.4vw;border-radius:22%;overflow:hidden;background:linear-gradient(150deg,#7c8cb4,#2d3650);
-  box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.3);transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
+  box-shadow:0 12px 28px rgba(0,0,0,.5);transition:transform .16s ease-out,box-shadow .16s ease-out;will-change:transform}
 .ico:after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;pointer-events:none;background:radial-gradient(ellipse 110% 70% at 25% 0%,rgba(255,255,255,.2),transparent 60%)}
 .ico svg{position:absolute;left:0;top:0;width:100%;height:100%}
 .ico img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
 .ico .num{position:absolute;right:9%;bottom:6%;font-size:1.7vw;font-weight:700;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .ico .txt{position:absolute;left:8%;right:8%;top:50%;transform:translateY(-50%);font-size:1.15vw;font-weight:600;line-height:1.15;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5);word-wrap:break-word}
-.item .nm{margin-top:.8vw;font-size:1.05vw;font-weight:500;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .25s;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.item .nm{margin-top:.8vw;font-size:1.05vw;font-weight:500;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .16s;text-shadow:0 1px 8px rgba(0,0,0,.7)}
 .item{position:relative}
 .item .sub{position:absolute;left:50%;width:16vw;margin-left:-8vw;top:100%;margin-top:.15vw;font-size:.85vw;color:rgba(244,246,251,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .25s}
 .item.is-focus .sub{opacity:1}
-.item.is-focus .ico{transform:translateY(-6%) scale(1.16);box-shadow:0 0 0 .22vw var(--focus),0 26px 50px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.4)}
+.item.is-focus .ico{transform:translateY(-6%) scale(1.16);box-shadow:0 0 0 .22vw var(--focus),0 20px 44px rgba(0,0,0,.6)}
 .item.is-focus .nm{color:var(--fg);font-weight:600}
 .item.is-pressed .ico{transform:translateY(-2%) scale(1.06)}
 .hint{position:absolute;left:0;right:0;bottom:3.2vh;text-align:center;font-size:.9vw;color:rgba(244,246,251,.45);letter-spacing:.08em;text-transform:uppercase;transition:opacity 1s}
 .hint.fade{opacity:0}
 .toast{position:fixed;left:50%;top:14%;transform:translate(-50%,-10px);opacity:0;pointer-events:none;padding:.8vw 1.4vw;border-radius:1.2vw;
-  background:rgba(10,14,26,.78);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 var(--glass-edge),0 20px 50px rgba(0,0,0,.45);font-size:1.15vw;transition:opacity .25s,transform .25s;z-index:30;max-width:70vw;text-align:center}
+  background:rgba(10,14,26,.9);box-shadow:inset 0 1px 0 var(--glass-edge),0 16px 40px rgba(0,0,0,.45);font-size:1.15vw;transition:opacity .2s,transform .2s;z-index:30;max-width:60vw;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 /* tutte le app */
 .all{position:fixed;top:0;left:0;right:0;bottom:0;z-index:12;opacity:0;visibility:hidden;transition:opacity .4s ease,visibility 0s linear .4s}
 .all.show{opacity:1;visibility:visible;transition:opacity .4s ease}
-.all .shade{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(5,7,14,.5)}
+.all .shade{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(5,7,14,.55)}
 .all .mini{position:absolute;left:5vw;top:3.6vh;display:flex;align-items:baseline;text-shadow:0 2px 16px rgba(0,0,0,.7)}
 .all .mini .c{font-size:2.6vw;font-weight:700;letter-spacing:-.03em;margin-right:1.2vw}
 .all .mini .d{font-size:1.2vw;color:rgba(244,246,251,.75)}
 .all .help{position:absolute;right:5vw;top:4.6vh;font-size:.95vw;color:rgba(244,246,251,.55);letter-spacing:.04em}
 .all .viewport{position:absolute;left:5vw;right:5vw;top:11vh;bottom:0;overflow:hidden}
-.sections{transition:transform .35s cubic-bezier(.2,.8,.2,1);padding-top:1vw;will-change:transform}
+.sections{transition:transform .22s ease-out;padding-top:1vw;will-change:transform}
 .sec{margin-bottom:1.2vw}
 .sec .sh{font-size:1.35vw;font-weight:600;letter-spacing:.01em;color:rgba(244,246,251,.9);margin:0 0 .7vw .3vw;text-shadow:0 1px 10px rgba(0,0,0,.7)}
 .sec .sh span{color:rgba(244,246,251,.4);font-weight:500;margin-left:.6em;font-size:.85em}
 .cards{display:flex;flex-wrap:wrap}
-.card{flex:none;display:flex;align-items:center;width:16.8vw;height:6.6vw;margin:0 1vw 1vw 0;padding:.6vw;border-radius:1.2vw;background:var(--glass);
-  box-shadow:inset 0 1px 0 var(--glass-edge),0 10px 30px rgba(0,0,0,.3);transition:transform .2s,background .2s,box-shadow .2s}
-.card .ico{width:5.2vw;height:5.2vw;flex:none;box-shadow:0 8px 20px rgba(0,0,0,.4)}
+.card{flex:none;display:flex;align-items:center;width:16.8vw;height:6.6vw;margin:0 1vw 1vw 0;padding:.6vw;border-radius:1.2vw;background:rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 0 var(--glass-edge);transition:transform .16s ease-out,background .16s,box-shadow .16s}
+.card .ico{width:5.2vw;height:5.2vw;flex:none;box-shadow:none}
 .card .ico .txt{font-size:.8vw}
 .card .ico .num{font-size:1.1vw}
 .card .tx{margin-left:1vw;overflow:hidden}
 .card .nm{font-size:1.25vw;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card .sub{font-size:.9vw;color:var(--fg-dim);margin-top:.2vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card.is-focus{background:var(--glass-strong);transform:scale(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 0 .2vw var(--focus),0 20px 50px rgba(0,0,0,.5);z-index:2}
+.card.is-focus{background:var(--glass-strong);transform:scale(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 0 .2vw var(--focus);z-index:2}
 /* menu e diagnostica */
 .panel{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(3,5,12,.55);opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s linear .25s;z-index:20}
 .panel.show{opacity:1;visibility:visible;transition:opacity .25s}
 .panel .inner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:60vw;max-height:84vh;display:flex;flex-direction:column;padding:2vw 2.4vw;border-radius:1.8vw;
-  background:rgba(14,18,32,.86);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:inset 0 1px 0 var(--glass-edge),0 40px 100px rgba(0,0,0,.6)}
+  background:rgba(14,18,32,.94);box-shadow:inset 0 1px 0 var(--glass-edge),0 30px 80px rgba(0,0,0,.6)}
 .panel .inner.menu{width:46vw}
 .panel h2{margin:0 0 .3vw;font-size:2vw;font-weight:700;letter-spacing:-.02em}
 .panel .desc{font-size:1vw;color:var(--fg-dim);margin-bottom:1.2vw}
@@ -143,7 +143,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
-  var VERSION='2.0.1';
+  var VERSION='2.1.0';
   var isTV=location.protocol!=='file:'&&location.hostname==='127.0.0.1'; // caricato da TizenBrew
   var REPO='apiazza75/samsung-tizen-home';
   var CDN=window.MH_CDN||'https://cdn.jsdelivr.net/gh/'+REPO+'@', API=window.MH_API||'https://api.github.com/repos/'+REPO+'/commits/main';
@@ -229,6 +229,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   var prefs={order:[],hidden:[],hdmi:{},last:null,back:true,lastAt:{}};
   try{var pp=localStorage.getItem('mh_prefs');if(pp){var o=JSON.parse(pp);for(var k in o)if(o[k]!==null&&o[k]!==undefined)prefs[k]=o[k];}}catch(e){}
   if(!prefs.lastAt||typeof prefs.lastAt!=='object')prefs.lastAt={};
+  if(prefs.v!==2){prefs.order=[];prefs.hidden=[];prefs.v=2;try{localStorage.setItem('mh_prefs',JSON.stringify(prefs))}catch(e){}}
   function savePrefs(){try{localStorage.setItem('mh_prefs',JSON.stringify(prefs))}catch(e){}}
   function hdmiName(n){return prefs.hdmi[n]||'HDMI '+n;}
   function agoText(t){if(!t)return '';var m=Math.round((Date.now()-t)/60000);if(m<1)return 'adesso';if(m<60)return m+' min fa';var h=Math.round(m/60);if(h<24)return h+' h fa';var d=Math.round(h/24);return d===1?'ieri':d+' giorni fa';}
@@ -246,7 +247,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
   function launchApp(id,name){ensureService().then(function(ok){if(!ok)return noService();
     fetchJson(SVC+'/launch?id='+encodeURIComponent(id)+'&back='+(prefs.back===false?0:1),8000).then(function(j){if(j.error)toast('Non riesco ad aprire '+name+': '+j.error,3000)}).catch(function(){toast('Servizio non raggiungibile',3000)});});}
   function sendKey(key,okMsg){ensureService().then(function(ok){if(!ok)return noService();
-    fetchJson(SVC+'/key?key='+key,40000).then(function(j){if(j.error)toast(j.error,5000);else if(okMsg)toast(okMsg);}).catch(function(){toast('Nessuna risposta dalla TV',4000)});});}
+    fetchJson(SVC+'/key?key='+key,40000).then(function(j){if(j.error)toast(shortErr(j.error),5000);else if(okMsg)toast(okMsg);}).catch(function(){toast('Nessuna risposta dalla TV',4000)});});}
+  function shortErr(e){e=String(e||'');if(e.length<120)return e;var m=/codice (\d+)( [^)]+)?/.exec(e);
+    return 'La TV non accetta il canale telecomando'+(m?' (codice '+m[1]+(m[2]||'')+')':'')+': dettagli nel menu ↑ → Diagnostica';}
   var offArmed=0;
   function powerOff(){var now=Date.now();if(now-offArmed>3000){offArmed=now;toast('Premi di nuovo Invio per spegnere la TV',3000);return;}offArmed=0;toast('Spengo…');sendKey('KEY_POWER');}
 
@@ -422,7 +425,7 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
       {t:'Svuota la cache del launcher e ricarica',a:function(){try{localStorage.removeItem('mh_launcher');localStorage.removeItem('mh_cache');}catch(e){}location.reload();}}];
     showPanel('inner menu');}
   function retryHub(){ensureService().then(function(ok){if(!ok)return noService();toast('Riprovo il collegamento con la TV…',3000);
-    fetchJson(SVC+'/hubreset',45000).then(function(r){if(r.error)toast('Smart Hub non disponibile: '+r.error,6000);else toast('Smart Hub: '+r.apps+' app',3000);
+    fetchJson(SVC+'/hubreset',45000).then(function(r){if(r.error)toast('Smart Hub non disponibile: '+shortErr(r.error),6000);else toast('Smart Hub: '+r.apps+' app',3000);
       ping().then(function(){loadApps().then(function(a){if(a&&a.length)rebuild(lastMods,a);});});}).catch(function(){toast('Nessuna risposta dal servizio',4000)});});}
   function openPicker(all){mode='pick';pickAll=!!all;psel=0;vis={};$('ptitle').textContent=all?'Tutte le app di sistema':'Scegli e ordina le app della riga';$('pdesc').textContent='Invio = mostra/nascondi nella riga · ← → (o canale ▲▼) = sposta su/giù · Indietro = salva e chiudi';
     pick=applyPrefs().filter(function(c){return pickAll||!c.sys||isVisible(c);});showPanel('inner');}
@@ -461,8 +464,9 @@ html,body{width:100%;height:100%;margin:0;background:var(--bg);color:var(--fg);f
     var lines=['MILANO HOME '+VERSION+' · commit '+(window.MH_REF?String(window.MH_REF).slice(0,7):'locale')+' da '+(window.MH_SOURCE||'file')+' · diagnostica  (↑ ↓ scorri · Indietro chiude)',
       'aggiornamento: '+upd.state+(upd.svc?' · servizio: '+upd.svc:'')+' · cache launcher: '+(lc?lc.ref.slice(0,7):'assente'),
       'servizio: '+(svcOk?'ok v'+s.v+' commit '+(s.ref?String(s.ref).slice(0,7):'?')+' node '+s.node+(s.boot?' · avviato da '+s.boot.source+(s.boot.lastError?' · '+s.boot.lastError:''):' · bootstrap 1.x'):'assente')+'  ·  moduli: '+(dbg.modsOk?modules.map(function(m){return m.name}).join(', '):'non ricevuti')+'  ·  app: '+allApps.length+(dbg.appsErr?'  ·  errore: '+dbg.appsErr:'')+'  ·  in cache: '+(cached&&cached.apps?cached.apps.length:0),
-      'Smart Hub: '+(dbg.hub!==undefined&&dbg.hub!==null?dbg.hub+' app dal canale':'canale non disponibile')+(dbg.hubErr?' ('+dbg.hubErr+')':'')+' · cartella icone: '+(hub.dir!==undefined&&hub.dir!==null?hub.dir+' app':'non leggibile'+(hub.dirError?' ('+hub.dirError+')':''))+' · abbinate: '+allApps.filter(function(a){return a.hub}).length+' · IP TV: '+(s.lan||'?')+(hub.chan?' · canale ok su '+hub.chan.host+(hub.chan.tls?':8002':':8001'):''),
-      'tentativi canale: '+((hub.attempts||[]).map(function(a){return a.host+':'+a.port+' → '+a.result+(a.events&&a.events.length?' ['+a.events.join(', ')+']':'');}).join('  |  ')||'nessuno')+(dbg.wallErr?' · sfondo non caricato: '+dbg.wallErr:'')];
+      'Smart Hub: '+(dbg.hub!==undefined&&dbg.hub!==null?dbg.hub+' app dal canale':'canale non disponibile')+(dbg.hubErr?' ('+dbg.hubErr+')':'')+' · cartella icone: '+(hub.dir!==undefined&&hub.dir!==null?hub.dir+' app':'non leggibile'+(hub.dirError?' ('+hub.dirError+')':''))+' · abbinate: '+allApps.filter(function(a){return a.hub}).length+' · IP TV: '+(s.lan||'?')+(hub.chan?' · canale ok su '+hub.chan.host+(hub.chan.tls?':8002':':8001')+' '+(hub.chan.api||'v2'):'')+(hub.bad&&hub.bad.length?' · scartati: '+hub.bad.join(', '):''),
+      'tentativi canale: '+((hub.attempts||[]).map(function(a){return a.host+':'+a.port+'/'+(a.api||'v2')+(a.token?' token':'')+' → '+a.result+(a.events&&a.events.length?' ['+a.events.join(', ')+']':'');}).join('  |  ')||'nessuno'),
+      'ritorno a Milano Home: '+(s.lastReturn?s.lastReturn.method+(s.lastReturn.error?' ('+s.lastReturn.error+')':' ok')+' · '+agoText(s.lastReturn.at):'mai')+(dbg.wallErr?' · sfondo non caricato: '+dbg.wallErr:'')];
     allApps.forEach(function(a){lines.push((a.show===false?'[nascosta] ':'')+(a.hub?'[hub '+a.hub+'] ':'')+(a.iconOk===true?'[icona] ':a.iconOk===false?'[icona assente] ':'')+(iconKeyFor(a.name,a.id)?'[nostra] ':'')+a.name+'  ·  '+a.id);});
     d.textContent=lines.join('\n');d.scrollTop=0;}
 
