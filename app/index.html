@@ -10,43 +10,56 @@
 <body>
 <div class="boot" id="boot">Milano Home · avvio…</div>
 <script>
-/* Bootstrap di Milano Home. Questo file e service.js sono volutamente stabili: TizenBrew li legge da jsDelivr, che li tiene in
-   cache fino a 7 giorni. Il launcher vero (launcher.html) viene caricato qui a ogni avvio dall'ultimo commit di main, con un URL
-   che contiene lo SHA del commit: su jsDelivr è immutabile, quindi non c'è mai cache vecchia e il modulo non va più reinstallato.
-   Se GitHub non risponde si usa l'ultimo commit noto (localStorage) e, in mancanza, il ramo main. ES5 per Chromium 76 (Tizen 6). */
+/* Bootstrap di Milano Home. Questo file e service.js sono volutamente stabili: TizenBrew li legge da jsDelivr senza versione.
+   Il launcher vero (launcher.html) viene tenuto in cache sulla TV (localStorage): se c'è, parte SUBITO e senza rete.
+   È il launcher stesso che, una volta avviato, controlla se su main c'è un commit più recente e aggiorna la cache per
+   l'apertura successiva (e chiede al servizio di aggiornarsi). Senza cache (prima installazione) il launcher viene scaricato
+   dall'ultimo commit di main, con ritentativi finché la rete non risponde. ES5 per Chromium 76 (Tizen 6). */
 (function () {
   var REPO = 'apiazza75/samsung-tizen-home';
   var CDN = window.MH_CDN || 'https://cdn.jsdelivr.net/gh/' + REPO + '@';
   var API = window.MH_API || 'https://api.github.com/repos/' + REPO + '/commits/main';
-  var boot = document.getElementById('boot'), done = false;
+  var CACHE_KEY = 'mh_launcher';
+  var boot = document.getElementById('boot'), shown = false, attempt = 0, retryTimer = null;
   function note(t) { try { boot.textContent = t; } catch (e) {} }
-  function fail(msg) { note('Milano Home · ' + msg + ' · premi Invio per riprovare'); document.addEventListener('keydown', function (e) { if (e.keyCode === 13) location.reload(); }); }
   function withTimeout(p, ms) { return new Promise(function (res, rej) { var t = setTimeout(function () { rej(new Error('timeout')); }, ms); p.then(function (v) { clearTimeout(t); res(v); }, function (e) { clearTimeout(t); rej(e); }); }); }
-  function load(ref, isFallback) {
-    var base = CDN + ref + '/app/';
+  function readCache() { try { var c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); if (c && c.ref && c.html && c.html.length > 5000) return c; } catch (e) {} return null; }
+  function writeCache(ref, html) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ref: ref, html: html, at: Date.now() })); } catch (e) {} }
+  // mostra il launcher: <base> fa risolvere sfondi e immagini relative dentro la cartella del commit; l'origine resta 127.0.0.1:8081
+  function show(html, ref, source) {
+    if (shown) return; shown = true; clearTimeout(retryTimer);
+    window.MH_REF = ref; window.MH_SOURCE = source; window.MH_CDN = CDN; window.MH_API = API;
+    html = html.replace(/<head>/i, '<head><base href="' + CDN + ref + '/app/">');
+    document.open(); document.write(html); document.close();
+  }
+  function fetchText(url, ms) {
+    return withTimeout(fetch(url, { cache: 'no-store', headers: url === API ? { Accept: 'application/vnd.github.sha' } : {} }), ms)
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
+  }
+  // launcher.html + icons.js (incorporato al posto di <script src="icons.js">), così la copia in cache è completa e parte senza rete
+  function fetchLauncher(ref) {
     note('Milano Home · carico ' + (ref.length === 40 ? ref.slice(0, 7) : ref) + '…');
-    return withTimeout(fetch(base + 'launcher.html', { cache: 'no-store' }), 10000)
-      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-      .then(function (html) {
-        if (done) return; done = true;
-        try { localStorage.setItem('mh_ref', ref); } catch (e) {}
-        window.MH_REF = ref;
-        // <base> fa risolvere font, sfondi e immagini relative dentro la cartella del commit; l'origine resta 127.0.0.1:8081
-        html = html.replace(/<head>/i, '<head><base href="' + base + '">');
-        document.open(); document.write(html); document.close();
-      })
+    return Promise.all([fetchText(CDN + ref + '/app/launcher.html', 15000), fetchText(CDN + ref + '/app/icons.js', 15000)]).then(function (r) {
+      if (r[0].length < 5000 || r[0].indexOf('</html>') < 0 || r[1].indexOf('MH_ICONS') < 0) throw new Error('file incompleti');
+      return r[0].replace('<script src="icons.js"><\/script>', '<script>' + r[1] + '<\/script>');
+    });
+  }
+  // prima installazione (o cache assente): ultimo commit di main, altrimenti il ramo main; si riprova finché non riesce
+  function firstLoad() {
+    fetchText(API, 6000)
+      .then(function (sha) { sha = sha.trim(); if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('sha?'); return fetchLauncher(sha).then(function (html) { writeCache(sha, html); show(html, sha, 'rete'); }); })
+      .catch(function () { return fetchLauncher('main').then(function (html) { show(html, 'main', 'rete'); }); })
       .catch(function (e) {
-        if (!isFallback && ref !== 'main') return load('main', true);
-        fail('launcher non scaricabile (' + (e && e.message ? e.message : e) + ')');
+        var wait = [3, 5, 10, 20, 30][Math.min(attempt++, 4)];
+        note('Milano Home · rete non disponibile (' + (e && e.message ? e.message : e) + ') · riprovo tra ' + wait + ' s · Invio riprova subito');
+        retryTimer = setTimeout(firstLoad, wait * 1000);
       });
   }
+  document.addEventListener('keydown', function (e) { if (!shown && e.keyCode === 13) { clearTimeout(retryTimer); firstLoad(); } });
   var m = /[?&]ref=([\w.-]+)/.exec(location.search);
-  if (m) return load(m[1], true);
-  var last = null; try { last = localStorage.getItem('mh_ref'); } catch (e) {}
-  withTimeout(fetch(API, { headers: { Accept: 'application/vnd.github.sha' }, cache: 'no-store' }), 5000)
-    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-    .then(function (sha) { sha = sha.trim(); if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('sha?'); return load(sha); })
-    .catch(function () { return load(last || 'main', !last); });
+  if (m) { fetchLauncher(m[1]).then(function (html) { show(html, m[1], 'rete'); }, function (e) { note('Milano Home · ' + m[1] + ' non scaricabile (' + (e && e.message ? e.message : e) + ')'); }); return; }
+  var cached = readCache();
+  if (cached) show(cached.html, cached.ref, 'cache'); else firstLoad();
 })();
 </script>
 </body>
