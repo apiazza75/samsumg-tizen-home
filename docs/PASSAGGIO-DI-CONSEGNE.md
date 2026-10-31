@@ -6,7 +6,7 @@ poi consegnare UNA volta (niente fix a tentativi, niente "prova questo e vediamo
 non lasciate in PR. Il nome del modulo sulla TV NON deve più cambiare.
 
 ## Stato del repository
-- main = 2.0.0 ("riga di tile quadrate + griglia per categorie, icone nostre, avvio senza rete, aggiornamento a caldo").
+- main = 2.0.1 (71a15bd): 2.0.0 (PR #5) + Action purge con verifica (PR #6) + correzioni segnalate da Codex (PR #7).
 - Storia: 8c58710 = 1.5.0 · 9e90648 = 1.5.1 · f7a8fce = 1.6.0 · 9bdfd45 = documentazione · 2.0.0 (PR #5).
 - File: app/index.html e service.js (bootstrap stabili, ora con cache), app/launcher.html (launcher vero, font incorporato),
   app/icons.js (set di icone nostro, 45 app + 6 di sistema), service-core.js (servizio vero), package.json (2.0.0), README.md,
