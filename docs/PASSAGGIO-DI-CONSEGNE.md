@@ -17,7 +17,13 @@ non lasciate in PR. Il nome del modulo sulla TV NON deve più cambiare.
    se la rete manca il modulo resta "Unknown Module" finché non si apre il Module Manager), app/index.html (proxy
    127.0.0.1:8081/module/..., a ogni apertura, SENZA cache e SENZA gestione errori: se jsDelivr non risponde la pagina resta
    vuota), service.js (serviceLauncher, all'avvio del servizio). Letto nel codice sorgente di TizenBrew (service-nextgen).
-2. purge.jsdelivr.net funziona per questo repo; l'Action "Purge jsDelivr cache" gira a ogni push su main.
+2. purge.jsdelivr.net accetta la purge (stato finished, provider CF+FY) ma NON basta per gli URL senza versione: il 31/10
+   dopo i merge della 2.0.x jsDelivr ha continuato per più di 5 minuti a risolvere "main" a commit vecchi, diversi tra i
+   nodi (service.js alla 1.5.1, index.html alla 1.6), e ripetere la purge produce solo "throttled". I tre file che TizenBrew
+   legge senza versione si rinnovano entro 12 ore (s-maxage 43200). Gli URL @sha sono invece disponibili subito. L'Action
+   ora purga una volta e riporta lo stato senza insistere. Conseguenza pratica: dopo un merge che tocca i bootstrap, la TV
+   può usare il bootstrap vecchio per qualche ora; non è un problema perché carica comunque launcher e core dall'ultimo
+   commit (scenario S8 dei test).
 3. Module Manager: scrivere apiazza75/samsung-tizen-home senza gh/.
 4. Sandbox di TizenBrew: vm context con le proprietà di global TRANNE global, module, services, inDebug, currentClient,
    currentModule; `new Function(...)` esegue nel realm principale (dove esiste `tizen`). test/sandbox.js è la replica esatta.
